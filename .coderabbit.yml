@@ -12,8 +12,15 @@ reviews:
   poem: true
   collapse_walkthrough: false
   sequence_diagrams: true
-  path_filters: []
-  path_instructions: []
+  path_filters: [
+    "!*.txt"
+  ]
+  path_instructions: [
+    {
+      "path": "drafts/*.md",
+      "instructions": "These are PHP RFC's to change the PHP language. Be constructive but critical in how it may change the language"
+    }
+  ]
   abort_on_close: true
   auto_review:
     enabled: true
