@@ -236,7 +236,25 @@ A `record` is always strongly equal (`===`) to another record with the same valu
 much like an `array` is strongly equal to another array containing the same elements.
 For all intents, `$recordA === $recordB` is the same as `$recordA == $recordB`.
 
-Comparison operations will behave exactly like they do for classes.
+Comparison operations will behave exactly like they do for classes, for example:
+
+```php
+record Time(float $milliseconds = 0) {
+    public float $totalSeconds {
+        get => $this->milliseconds / 1000,
+    }
+    
+    public float $totalMinutes {
+        get => $this->totalSeconds / 60,
+    }
+    /* ... */
+}
+
+$time1 = Time(1000);
+$time2 = Time(5000);
+
+echo $time1 < $time2; // Outputs: true
+```
 
 ### Reflection
 
@@ -274,7 +292,7 @@ try {
 
 #### ReflectionFunction for implicit constructor
 
-Using `ReflectionFunction` on a record will reflect the implicit constructor.
+Using `ReflectionFunction` on a record will reflect the constructor.
 
 ``` php
 $constructor = new \ReflectionFunction('Geometry\Point');
