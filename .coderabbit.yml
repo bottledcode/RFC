@@ -13,7 +13,7 @@ reviews:
   collapse_walkthrough: false
   sequence_diagrams: true
   path_filters: [
-    "!*.txt"
+    "!**/*.ptxt"
   ]
   path_instructions: [
     {
