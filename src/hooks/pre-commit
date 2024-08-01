@@ -1,0 +1,7 @@
+#!/bin/sh
+
+make
+
+git add published/.
+
+exit 0
