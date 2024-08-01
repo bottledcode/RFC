@@ -94,7 +94,15 @@ static properties, methods, constants results in a compilation error.
 ``` php
 namespace Paint;
 
+// Define a record with several primary color properties
 record Pigment(int $red, int $yellow, int $blue) {
+
+  // property hooks are allowed
+  public string $hexValue {
+    get => sprintf("#%02x%02x%02x", $this->red, $this->yellow, $this->blue),
+  }
+
+  // methods are allowed
   public function mix(Pigment $other, float $amount): Pigment {
     return $this->with(
       red: $this->red * (1 - $amount) + $other->red * $amount,
@@ -102,15 +110,28 @@ record Pigment(int $red, int $yellow, int $blue) {
       blue: $this->blue * (1 - $amount) + $other->blue * $amount
     );
   }
+  
+  // all properties are mutable in constructors
+  public function __construct() {
+    $this->red = max(0, min(255, $this->red));
+    $this->yellow = max(0, min(255, $this->yellow));
+    $this->blue = max(0, min(255, $this->blue));
+  }
+  
+  public function with() {
+    // prevent the creation of a new Pigment from an existing pigment
+    throw new \LogicException("Cannot create a new Pigment from an existing pigment");
+  }
 }
 
+// simple records do not need to define a body
 record StockPaint(Pigment $color, float $volume);
 
 record PaintBucket(StockPaint ...$constituents) {
   public function mixIn(StockPaint $paint): PaintBucket {
-    return $this->with(...$this->constituents, $paint);
+    return $this->with(...[...$this->constituents, $paint]);
   }
-  
+
   public function color(): Pigment {
     return array_reduce($this->constituents, fn($color, $paint) => $color->mix($paint->color, $paint->volume), Pigment(0, 0, 0));
   }
@@ -119,7 +140,7 @@ record PaintBucket(StockPaint ...$constituents) {
 
 #### Usage
 
-A `record` may be used as a `readonly class`,
+A `record` may be used any where a `readonly class` can be used,
 as the behavior of it is very similar with no key differences to assist in migration from `readonly class`.
 
 #### Optional parameters and default values
