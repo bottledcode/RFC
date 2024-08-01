@@ -13,7 +13,7 @@ with [value semantics](https://en.wikipedia.org/wiki/Value_semantics).
 
 ### Value objects
 
-Value objects are immutable objects that represent a value. They are used to store values with a different meaning than
+Value objects are immutable objects that represent a value. They are used for storing values with a different meaning than
 their technical value.
 For example, a `Point` object with `x` and `y` properties can represent a point in a 2D space,
 and an `ExpirationDate` can represent a date when something expires.
