@@ -77,7 +77,7 @@ typed parameters that become public, immutable, properties.
 They may optionally implement an interface using the `implements` keyword.
 A `record` body is optional.
 
-A `record` may contain a constructor with zero arguments to perform further initialization, if required.
+A `record` may contain a constructor with zero arguments to perform further initialization if required.
 If it does not have a constructor, an implicit, empty contstructor is provided.
 
 A `record` body may contain property hooks, methods, and use traits (so long as they do not conflict with `record`
@@ -226,7 +226,7 @@ However, immutability and special instantiation rules will be enforced.
 
 #### ReflectionClass support
 
-`ReflectionClass` can be used to inspect records, their properties, and methods. Any attempt to modify record properties
+It can be used to inspect records, their properties, and methods. Any attempt to modify record properties
 via reflection will throw an exception, maintaining immutability. Attempting to create a new instance via
 `ReflectionClass` will cause a `ReflectionException` to be thrown.
 
@@ -288,12 +288,12 @@ record(Point)#1 (2) {
 A `record` cannot be named after an existing `record`, `class` or `function`. This is because defining a `record`
 creates both a `class` and a `function` with the same name.
 
-### Auto loading
+### Autoloading
 
 As invoking a record value by its name looks remarkably similar to calling a function,
-and PHP has no function autoloader, auto loading will not be supported in this implementation.
-If function auto loading were to be implemented in the future, an autoloader could locate the `record` and autoload it.
-The author of this RFC strongly encourages someone to put forward a function auto loading RFC if auto loading is desired for records.
+and PHP has no function autoloader, autoloading will not be supported in this implementation.
+If function autoloading were to be implemented in the future, an autoloader could locate the `record` and autoload it.
+The author of this RFC strongly encourages someone to put forward a function autoloading RFC if autoloading is desired for records.
 
 ## Backward Incompatible Changes
 
@@ -327,7 +327,7 @@ None
 
 ## Open Issues
 
-Todo
+To-do
 
 ## Unaffected PHP Functionality
 

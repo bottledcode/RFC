@@ -26,7 +26,7 @@ $uid = $user->id;
 // ...
 $uid = 5; // somehow accidentally sets uid to an unrelated integer
 // ...
-updateUserRole($uid, Role::ADMIN()); // accidental passing of
+updateUserRole($uid, Role::ADMIN()); // accidental passing of 
 </code>
 
 In this example, the uid is accidentally set to a plain integer, and updateUserRole is called with the wrong value.
@@ -64,7 +64,7 @@ This RFC proposes the introduction of a new record keyword in PHP to define immu
 
 A ''%%record%%'' is defined by the word "record", followed by the name of its type, an open parenthesis containing one or more typed parameters that become public, immutable, properties. They may optionally implement an interface using the ''%%implements%%'' keyword. A ''%%record%%'' body is optional.
 
-A ''%%record%%'' may contain a constructor with zero arguments to perform further initialization, if required. If it does not have a constructor, an implicit, empty contstructor is provided.
+A ''%%record%%'' may contain a constructor with zero arguments to perform further initialization if required. If it does not have a constructor, an implicit, empty contstructor is provided.
 
 A ''%%record%%'' body may contain property hooks, methods, and use traits (so long as they do not conflict with ''%%record%%'' rules). Regular properties may also be defined, but they are immutable by default and are no different from ''%%const%%''.
 
@@ -89,7 +89,7 @@ record PaintBucket(StockPaint ...$constituents) {
   public function mixIn(StockPaint $paint): PaintBucket {
     return $this->with(...$this->constituents, $paint);
   }
-
+  
   public function color(): Pigment {
     return array_reduce($this->constituents, fn($color, $paint) => $color->mix($paint->color, $paint->volume), Pigment(0, 0, 0));
   }
@@ -151,7 +151,7 @@ record User(string $name, string $email) {
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
       throw new InvalidArgumentException("Invalid email address");
     }
-
+    
     $this->id = hash('sha256', $email);
     $this->name = ucwords($name);
   }
@@ -190,7 +190,7 @@ Records in PHP will be fully supported by the reflection API, providing access t
 
 === ReflectionClass support ===
 
-''%%ReflectionClass%%'' can be used to inspect records, their properties, and methods. Any attempt to modify record properties via reflection will throw an exception, maintaining immutability. Attempting to create a new instance via ''%%ReflectionClass%%'' will cause a ''%%ReflectionException%%'' to be thrown.
+It can be used to inspect records, their properties, and methods. Any attempt to modify record properties via reflection will throw an exception, maintaining immutability. Attempting to create a new instance via ''%%ReflectionClass%%'' will cause a ''%%ReflectionException%%'' to be thrown.
 
 <code php>
 $point = Point(3, 4);
@@ -249,9 +249,9 @@ record(Point)#1 (2) {
 
 A ''%%record%%'' cannot be named after an existing ''%%record%%'', ''%%class%%'' or ''%%function%%''. This is because defining a ''%%record%%'' creates both a ''%%class%%'' and a ''%%function%%'' with the same name.
 
-==== Auto loading ====
+==== Autoloading ====
 
-As invoking a record value by its name looks remarkably similar to calling a function, and PHP has no function autoloader, auto loading will not be supported in this implementation. If function auto loading were to be implemented in the future, an autoloader could locate the ''%%record%%'' and autoload it. The author of this RFC strongly encourages someone to put forward a function auto loading RFC if auto loading is desired for records.
+As invoking a record value by its name looks remarkably similar to calling a function, and PHP has no function autoloader, autoloading will not be supported in this implementation. If function autoloading were to be implemented in the future, an autoloader could locate the ''%%record%%'' and autoload it. The author of this RFC strongly encourages someone to put forward a function autoloading RFC if autoloading is desired for records.
 
 ===== Backward Incompatible Changes =====
 
@@ -285,7 +285,7 @@ None
 
 ===== Open Issues =====
 
-Todo
+To-do
 
 ===== Unaffected PHP Functionality =====
 
