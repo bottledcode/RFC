@@ -8,7 +8,7 @@
 
 ## Introduction
 
-This RFC proposed the introduction of `record` objects, which are immutable classes
+This RFC proposes the introduction of `record` objects, which are immutable classes
 with [value semantics](https://en.wikipedia.org/wiki/Value_semantics).
 
 ### Value objects
@@ -124,7 +124,7 @@ as the behavior of it is very similar with no key differences to assist in migra
 
 #### Optional parameters and default values
 
-A `record` can also be defined with optional parameters that are set if left out during instantiation.
+A `record` can also be defined with optional parameters that are set if omitted during instantiation.
 
 ``` php
 record Rectangle(int $x, int $y = 10);
@@ -138,7 +138,7 @@ This method allows for partial updates of properties, creating a new instance of
 properties updated.
 
 The auto-generated `with` method accepts only named arguments defined in the constructor.
-No other property names can be used, and it returns a new record object with the given values.
+No other property names can be used, and it returns a record object with the given values.
 
 ``` php
 $point1 = Point(3, 4);
@@ -205,7 +205,7 @@ $point4 = $point1->with(x: 5); // Data duplication occurs here, creating a new i
 
 #### Cloning and with()
 
-Calling `clone` on a `record` results in the exact same record object being returned. As it is a "value" object, it
+Calling `clone` on a `record` results in the same record object being returned. As it is a "value" object, it
 represents a value and is the same thing as saying `clone 3`—you expect to get back a `3`.
 
 `with` may be called with no arguments, and it is the same behavior as `clone`.

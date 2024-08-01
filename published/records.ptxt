@@ -8,7 +8,7 @@
 
 ===== Introduction =====
 
-This RFC proposed the introduction of ''%%record%%'' objects, which are immutable classes with [[https://en.wikipedia.org/wiki/Value_semantics|value semantics]].
+This RFC proposes the introduction of ''%%record%%'' objects, which are immutable classes with [[https://en.wikipedia.org/wiki/Value_semantics|value semantics]].
 
 ==== Value objects ====
 
@@ -104,7 +104,7 @@ A ''%%record%%'' may be used as a ''%%readonly class%%'', as the behavior of it 
 
 === Optional parameters and default values ===
 
-A ''%%record%%'' can also be defined with optional parameters that are set if left out during instantiation.
+A ''%%record%%'' can also be defined with optional parameters that are set if omitted during instantiation.
 
 <code php>
 record Rectangle(int $x, int $y = 10);
@@ -115,7 +115,7 @@ var_dump(Rectangle(10)); // output a record with x: 10 and y: 10
 
 To enhance the usability of records, the RFC proposes automatically generating a ''%%with%%'' method for each record. This method allows for partial updates of properties, creating a new instance of the record with the specified properties updated.
 
-The auto-generated ''%%with%%'' method accepts only named arguments defined in the constructor. No other property names can be used, and it returns a new record object with the given values.
+The auto-generated ''%%with%%'' method accepts only named arguments defined in the constructor. No other property names can be used, and it returns a record object with the given values.
 
 <code php>
 $point1 = Point(3, 4);
@@ -176,7 +176,7 @@ $point4 = $point1->with(x: 5); // Data duplication occurs here, creating a new i
 
 === Cloning and with() ===
 
-Calling ''%%clone%%'' on a ''%%record%%'' results in the exact same record object being returned. As it is a "value" object, it represents a value and is the same thing as saying ''%%clone 3%%''—you expect to get back a ''%%3%%''.
+Calling ''%%clone%%'' on a ''%%record%%'' results in the same record object being returned. As it is a "value" object, it represents a value and is the same thing as saying ''%%clone 3%%''—you expect to get back a ''%%3%%''.
 
 ''%%with%%'' may be called with no arguments, and it is the same behavior as ''%%clone%%''. This is an important consideration because a developer may call ''%%$new = $record->with(...$array)%%'' and we don’t want to crash. If a developer wants to crash, they can do by ''%%assert($new !== $record)%%''.
 
