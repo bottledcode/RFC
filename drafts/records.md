@@ -68,9 +68,9 @@ properties and equality checks using a function-like instantiation syntax.
 Records can implement interfaces and use traits but cannot extend other records or classes;
 composition is allowed, however.
 
-#### Syntax and semantics
+### Syntax and semantics
 
-##### Definition
+#### Definition
 
 A `record` is defined by the word "record", followed by the name of its type, an open parenthesis containing one or more
 typed parameters that become public, immutable, properties.
@@ -114,12 +114,12 @@ record PaintBucket(StockPaint ...$constituents) {
 }
 ```
 
-##### Usage
+#### Usage
 
 A `record` may be used as a `readonly class`,
 as the behavior of it is very similar with no key differences to assist in migration from `readonly class`.
 
-##### Optional parameters and default values
+#### Optional parameters and default values
 
 A `record` can also be defined with optional parameters that are set if left out during instantiation.
 
@@ -128,7 +128,7 @@ record Rectangle(int $x, int $y = 10);
 var_dump(Rectangle(10)); // output a record with x: 10 and y: 10
 ```
 
-##### Auto-generated `with` method
+#### Auto-generated `with` method
 
 To enhance the usability of records, the RFC proposes automatically generating a `with` method for each record.
 This method allows for partial updates of properties, creating a new instance of the record with the specified
@@ -163,7 +163,7 @@ $pluto = $pluto->with(population: 1);
 $mickey = $pluto->with(name: "Mickey"); // no named argument for population error
 ```
 
-##### Constructors
+#### Constructors
 
 Optionally, they may also define a constructor to provide validation or other initialization logic:
 
@@ -185,7 +185,7 @@ record User(string $name, string $email) {
 During construction, a `record` is fully mutable.
 This allows the developer freedom to mutate properties as needed to ensure a canonical representation of an object.
 
-#### Performance considerations
+### Performance considerations
 
 To ensure that records are both performant and memory-efficient,
 the RFC proposes leveraging PHP's copy-on-write (COW) semantics (similar to arrays) and interning values.
@@ -200,7 +200,7 @@ $point3 = Point(3, 4); // No data duplication here either, it is pointing the th
 $point4 = $point1->with(x: 5); // Data duplication occurs here, creating a new instance with modified data
 ```
 
-##### Cloning and with()
+#### Cloning and with()
 
 Calling `clone` on a `record` results in the exact same record object being returned. As it is a "value" object, it
 represents a value and is the same thing as saying `clone 3`—you expect to get back a `3`.
@@ -210,7 +210,7 @@ This is an important consideration because a developer may call `$new = $record-
 crash.
 If a developer wants to crash, they can do by `assert($new !== $record)`.
 
-#### Equality
+### Equality
 
 A `record` is always strongly equal (`===`) to another record with the same value in the properties,
 much like an `array` is strongly equal to another array containing the same elements.
@@ -270,16 +270,18 @@ foreach ($constructor->getParameters() as $param) {
 - A new function, `is_record($record)`, will return `true` for records, and `false` otherwise
 - Calling `get_class($record)` will return the record name
 
-#### var_dump
+### var_dump
 
 Calling `var_dump` will look much like it does for objects, but instead of `object` it will say `record`.
 
-    record(Point)#1 (2) {
-      ["x"]=>
-      int(1)
-      ["y"]=>
-      int(2)
-    }
+```txt
+record(Point)#1 (2) {
+  ["x"]=>
+  int(1)
+  ["y"]=>
+  int(2)
+}
+```
 
 ### Considerations for implementations
 
