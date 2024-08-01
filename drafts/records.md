@@ -213,6 +213,23 @@ This is an important consideration because a developer may call `$new = $record-
 crash.
 If a developer wants to crash, they can do by `assert($new !== $record)`.
 
+### Serialization and deserialization
+
+Records that contain a single value will serialize to their single value,
+while records with multiple values will serialize to an array of values.
+The same will be true for deserialization.
+
+```php
+record Single(string $value);
+record Multiple(string $value1, string $value2);
+
+echo $single = serialize(Single('value')); // Outputs: "s:5:"value";"
+echo $multiple = serialize(Multiple('value1', 'value2')); // Outputs: "a:2:{i:0;s:6:"value1";i:1;s:6:"value2";}"
+
+echo unserialize($single) === Single('value'); // Outputs: true
+echo unserialize($multiple) === Multiple('value1', 'value2'); // Outputs: true
+```
+
 ### Equality
 
 A `record` is always strongly equal (`===`) to another record with the same value in the properties,
