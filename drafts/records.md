@@ -14,7 +14,7 @@ with [value semantics](https://en.wikipedia.org/wiki/Value_semantics).
 ### Value objects
 
 Value objects are immutable objects that represent a value. They are used for storing values with a different meaning than
-their technical value.
+their technical value, adding additional semantic context to the value.
 For example, a `Point` object with `x` and `y` properties can represent a point in a 2D space,
 and an `ExpirationDate` can represent a date when something expires.
 This prevents developers from accidentally using the wrong value in the wrong context.
@@ -59,6 +59,9 @@ $uid = 5;
 // ...
 updateUserRole($uid, Role::ADMIN()); // This will throw an error
 ```
+
+Now, if `$uid` is accidentally set to an integer,
+the call to `updateUserRole` will throw an error because the type is not correct.
 
 ## Proposal
 

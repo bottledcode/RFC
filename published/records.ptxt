@@ -12,7 +12,7 @@ This RFC proposed the introduction of ''%%record%%'' objects, which are immutabl
 
 ==== Value objects ====
 
-Value objects are immutable objects that represent a value. They are used for storing values with a different meaning than their technical value. For example, a ''%%Point%%'' object with ''%%x%%'' and ''%%y%%'' properties can represent a point in a 2D space, and an ''%%ExpirationDate%%'' can represent a date when something expires. This prevents developers from accidentally using the wrong value in the wrong context.
+Value objects are immutable objects that represent a value. They are used for storing values with a different meaning than their technical value, adding additional semantic context to the value. For example, a ''%%Point%%'' object with ''%%x%%'' and ''%%y%%'' properties can represent a point in a 2D space, and an ''%%ExpirationDate%%'' can represent a date when something expires. This prevents developers from accidentally using the wrong value in the wrong context.
 
 Consider this example:
 
@@ -53,6 +53,8 @@ $uid = 5;
 // ...
 updateUserRole($uid, Role::ADMIN()); // This will throw an error
 </code>
+
+Now, if ''%%$uid%%'' is accidentally set to an integer, the call to ''%%updateUserRole%%'' will throw an error because the type is not correct.
 
 ===== Proposal =====
 
@@ -177,6 +179,21 @@ $point4 = $point1->with(x: 5); // Data duplication occurs here, creating a new i
 Calling ''%%clone%%'' on a ''%%record%%'' results in the exact same record object being returned. As it is a "value" object, it represents a value and is the same thing as saying ''%%clone 3%%''—you expect to get back a ''%%3%%''.
 
 ''%%with%%'' may be called with no arguments, and it is the same behavior as ''%%clone%%''. This is an important consideration because a developer may call ''%%$new = $record->with(...$array)%%'' and we don’t want to crash. If a developer wants to crash, they can do by ''%%assert($new !== $record)%%''.
+
+==== Serialization and deserialization ====
+
+Records that contain a single value will serialize to their single value, while records with multiple values will serialize to an array of values. The same will be true for deserialization.
+
+<code php>
+record Single(string $value);
+record Multiple(string $value1, string $value2);
+
+echo $single = serialize(Single('value')); // Outputs: "s:5:"value";"
+echo $multiple = serialize(Multiple('value1', 'value2')); // Outputs: "a:2:{i:0;s:6:"value1";i:1;s:6:"value2";}"
+
+echo unserialize($single) === Single('value'); // Outputs: true
+echo unserialize($multiple) === Multiple('value1', 'value2'); // Outputs: true
+</code>
 
 ==== Equality ====
 
