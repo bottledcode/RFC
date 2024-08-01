@@ -182,14 +182,14 @@ Calling ''%%clone%%'' on a ''%%record%%'' results in the exact same record objec
 
 ==== Serialization and deserialization ====
 
-Records that contain a single value will serialize to their single value, while records with multiple values will serialize to an array of values. The same will be true for deserialization.
+Records are fully serializable and deserializable.
 
 <code php>
 record Single(string $value);
 record Multiple(string $value1, string $value2);
 
-echo $single = serialize(Single('value')); // Outputs: "s:5:"value";"
-echo $multiple = serialize(Multiple('value1', 'value2')); // Outputs: "a:2:{i:0;s:6:"value1";i:1;s:6:"value2";}"
+echo $single = serialize(Single('value')); // Outputs: "O:6:"Single":1:{s:5:"value";s:5:"value";}"
+echo $multiple = serialize(Multiple('value1', 'value2')); // Outputs: "O:8:"Multiple":1:{s:6:"values";a:2:{i:0;s:6:"value1";i:1;s:6:"value2";}}"
 
 echo unserialize($single) === Single('value'); // Outputs: true
 echo unserialize($multiple) === Multiple('value1', 'value2'); // Outputs: true
