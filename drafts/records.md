@@ -21,7 +21,7 @@ and an `ExpirationDate` can represent a date when something expires.
 This prevents developers from accidentally using the wrong value in the wrong context.
 
 Consider this example where a function accepts an integer as a user ID,
-and the id is accidentally set to a non-sensical value:
+and the ID is accidentally set to a nonsensical value:
 
 ```php
 function updateUserRole(int $userId, string $role): void {
@@ -37,7 +37,7 @@ updateUserRole($uid, 'admin'); // accidental passing of a non-sensical value for
 ```
 
 Currently, the only solution to this is to use a class, but this requires a lot of boilerplate code.
-Further, `readonly` classes have a lot of edge cases and are rather unwieldy.
+Further, `readonly` classes have numerous edge cases and are rather unwieldy.
 
 #### The solution
 
@@ -68,7 +68,7 @@ because the function expects a `UserId` object instead of a plain integer.
 
 ## Proposal
 
-This RFC proposes the introduction of a new record keyword in PHP to define immutable data objects. These objects will
+This RFC proposes the introduction of a `record` keyword in PHP to define immutable data objects. These objects will
 allow properties to be initialized concisely and will provide built-in methods for common operations such as modifying
 properties and equality checks using a function-like instantiation syntax.
 Records can implement interfaces and use traits but can’t extend other records or classes;
@@ -95,7 +95,7 @@ but if it does, it must take zero arguments.
 A **record** body may contain property hooks, methods, and use traits.
 
 A **record** body may also declare properties whose values are only mutable during a constructor call.
-At any other time the property is immutable.
+At any other time, the property is immutable.
 
 A **record** body may also contain static methods and properties,
 which behave identically to class static methods and properties.
@@ -199,7 +199,7 @@ $otherId = $userId->with(id: 2); // success
 Example showing how this works with variadic arguments,
 take note that PHP doesn’t allow sending variadic arguments with named arguments.
 Thus, the developer may need
-to perform multiple operations to construct a new record from an existing one using variadic arguments.
+to perform multiple operations to construct a record from an existing one using variadic arguments.
 
 ```php
 record Vector(int $dimensions, int ...$values);
@@ -370,7 +370,7 @@ echo $time1 < $time2; // Outputs: true
 ### Reflection
 
 Records can be interacted with via ReflectionClass, similar to readonly classes.
-For instance, a developer can inspect private properties but not change them as records are immutable.
+For instance, a developer can inspect private properties but not change them, as records are immutable.
 
 Developers may create new instances of records using ReflectionFunction or ReflectionClass. More on this below.
 
@@ -459,7 +459,7 @@ assert($example === $point); // true
 ### var_dump
 
 When passed an instance of a record the `var_dump()` function will generate output the same
-as if an equivalent object was passed —
+as if an equivalent object were passed —
 e.g., both having the same properties — except the output generated will replace the prefix text "object"
 with the text "record."
 

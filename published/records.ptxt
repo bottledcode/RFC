@@ -14,7 +14,7 @@ This RFC proposes the introduction of ''%%record%%'' objects, which are immutabl
 
 Value objects are immutable objects that represent a value. They’re used for storing values with a different meaning than their technical value, adding additional semantic context to the value. For example, a ''%%Point%%'' object with ''%%x%%'' and ''%%y%%'' properties can represent a point in a 2D space, and an ''%%ExpirationDate%%'' can represent a date when something expires. This prevents developers from accidentally using the wrong value in the wrong context.
 
-Consider this example where a function accepts an integer as a user ID, and the id is accidentally set to a non-sensical value:
+Consider this example where a function accepts an integer as a user ID, and the ID is accidentally set to a nonsensical value:
 
 <code php>
 function updateUserRole(int $userId, string $role): void {
@@ -29,7 +29,7 @@ $uid = 5; // somehow accidentally sets uid to an unrelated integer
 updateUserRole($uid, 'admin'); // accidental passing of a non-sensical value for uid
 </code>
 
-Currently, the only solution to this is to use a class, but this requires a lot of boilerplate code. Further, ''%%readonly%%'' classes have a lot of edge cases and are rather unwieldy.
+Currently, the only solution to this is to use a class, but this requires a lot of boilerplate code. Further, ''%%readonly%%'' classes have numerous edge cases and are rather unwieldy.
 
 === The solution ===
 
@@ -56,7 +56,7 @@ Now, if ''%%$uid%%'' is accidentally set to an integer, the call to ''%%updateUs
 
 ===== Proposal =====
 
-This RFC proposes the introduction of a new record keyword in PHP to define immutable data objects. These objects will allow properties to be initialized concisely and will provide built-in methods for common operations such as modifying properties and equality checks using a function-like instantiation syntax. Records can implement interfaces and use traits but can’t extend other records or classes; composition is allowed, however.
+This RFC proposes the introduction of a ''%%record%%'' keyword in PHP to define immutable data objects. These objects will allow properties to be initialized concisely and will provide built-in methods for common operations such as modifying properties and equality checks using a function-like instantiation syntax. Records can implement interfaces and use traits but can’t extend other records or classes; composition is allowed, however.
 
 ==== Syntax and semantics ====
 
@@ -72,7 +72,7 @@ A **record** may contain a traditional constructor with zero arguments to perfor
 
 A **record** body may contain property hooks, methods, and use traits.
 
-A **record** body may also declare properties whose values are only mutable during a constructor call. At any other time the property is immutable.
+A **record** body may also declare properties whose values are only mutable during a constructor call. At any other time, the property is immutable.
 
 A **record** body may also contain static methods and properties, which behave identically to class static methods and properties. They may be accessed using the ''%%::%%'' operator.
 
@@ -161,7 +161,7 @@ $otherId = $userId->with(serialNumber: "U2"); // serialNumber is not defined in 
 $otherId = $userId->with(id: 2); // success
 </code>
 
-Example showing how this works with variadic arguments, take note that PHP doesn’t allow sending variadic arguments with named arguments. Thus, the developer may need to perform multiple operations to construct a new record from an existing one using variadic arguments.
+Example showing how this works with variadic arguments, take note that PHP doesn’t allow sending variadic arguments with named arguments. Thus, the developer may need to perform multiple operations to construct a record from an existing one using variadic arguments.
 
 <code php>
 record Vector(int $dimensions, int ...$values);
@@ -313,7 +313,7 @@ echo $time1 < $time2; // Outputs: true
 
 ==== Reflection ====
 
-Records can be interacted with via ReflectionClass, similar to readonly classes. For instance, a developer can inspect private properties but not change them as records are immutable.
+Records can be interacted with via ReflectionClass, similar to readonly classes. For instance, a developer can inspect private properties but not change them, as records are immutable.
 
 Developers may create new instances of records using ReflectionFunction or ReflectionClass. More on this below.
 
@@ -398,7 +398,7 @@ assert($example === $point); // true
 
 ==== var_dump ====
 
-When passed an instance of a record the ''%%var_dump()%%'' function will generate output the same as if an equivalent object was passed — e.g., both having the same properties — except the output generated will replace the prefix text "object" with the text "record."
+When passed an instance of a record the ''%%var_dump()%%'' function will generate output the same as if an equivalent object were passed — e.g., both having the same properties — except the output generated will replace the prefix text "object" with the text "record."
 
 <code txt>
 record(Point)#1 (2) {
