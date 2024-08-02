@@ -14,8 +14,7 @@ with [value semantics](https://en.wikipedia.org/wiki/Value_semantics).
 ### Value objects
 
 Value objects are immutable objects that represent a value.
-They’re used to store values with a different meaning than their technical value,
-adding additional semantic context to the value.
+They’re used to store values with a different semantic meaning than their technical value, adding additional context.
 For example, a `Point` object with `x` and `y` properties can represent a point in a 2D space,
 and an `ExpirationDate` can represent a date when something expires.
 This prevents developers from accidentally using the wrong value in the wrong context.
@@ -33,15 +32,15 @@ $uid = $user->id;
 // ...
 $uid = 5; // somehow accidentally sets uid to an unrelated integer
 // ...
-updateUserRole($uid, 'admin'); // accidental passing of a non-sensical value for uid
+updateUserRole($uid, 'admin'); // accidental passing of a nonsensical value for uid
 ```
 
-Currently, the only solution to this is to use a class, but this requires significant boilerplate code.
-Further, `readonly` classes have numerous edge cases and are rather unwieldy.
+Currently, the only solution to this is to use a **class**, but this requires significant boilerplate code.
+Further, **readonly classes** have many edge cases and are rather unwieldy.
 
 #### The solution
 
-Like arrays, strings, and other values, `record` objects are strongly equal to each other if they contain the same
+Like arrays, strings, and other values, **record** objects are strongly equal (`===`) to each other if they contain the same
 values.
 
 Let’s take a look at the updated example, using a `record` type for `UserId`.
@@ -68,9 +67,10 @@ because the function expects a `UserId` object instead of a plain integer.
 
 ## Proposal
 
-This RFC proposes the introduction of a `record` keyword in PHP to define immutable data objects. These objects will
-allow properties to be initialized concisely and will provide built-in methods for common operations such as modifying
-properties and equality checks using a function-like instantiation syntax.
+This RFC proposes the introduction of a `record` keyword in PHP to define immutable value objects. 
+These objects will allow properties to be initialized concisely
+and will provide built-in methods for common operations
+such as modifying properties and equality checks using a function-like instantiation syntax.
 Records can implement interfaces and use traits but can’t extend other records or classes;
 composition is allowed, however.
 
@@ -81,7 +81,7 @@ composition is allowed, however.
 A **record** is defined by the keyword `record`,
 followed by the name of its type (e.g., `UserId`),
 and then must list one or more typed parameters (e.g., `int $id`) that become properties of the record.
-A parameter may provide `private` or `public` modifiers, but are `public` by default.
+A parameter may provide `private` or `public` modifiers, but are `public` by when not specified.
 This is referred to as the "inline constructor."
 
 A **record** may optionally implement an interface using the `implements` keyword,
@@ -89,8 +89,7 @@ which may optionally be followed by a record body enclosed in curly braces `{}`.
 
 A **record** may not extend another record or class.
 
-A **record** may contain a traditional constructor with zero arguments to perform further initialization,
-but if it does, it must take zero arguments.
+A **record** may contain a traditional constructor with zero arguments to perform further initialization.
 
 A **record** body may contain property hooks, methods, and use traits.
 
@@ -98,7 +97,7 @@ A **record** body may also declare properties whose values are only mutable duri
 At any other time, the property is immutable.
 
 A **record** body may also contain static methods and properties,
-which behave identically to class static methods and properties.
+which behave identically to static methods and properties in classes.
 They may be accessed using the `::` operator.
 
 ``` php
@@ -151,7 +150,7 @@ record PaintBucket(StockPaint ...$constituents) {
 #### Usage
 
 A record may be used as a readonly class,
-as the behavior of the two is very similar,
+as the behavior of the two is very similar once instantiated,
 assisting in migrating from one implementation to another.
 
 #### Optional parameters and default values
@@ -161,7 +160,7 @@ A `record` can also be defined with optional parameters that are set if omitted 
 One or more properties defined in the inline constructor may have a default value
 declared using the same syntax and rules as any other default parameter declared in methods/functions.
 If a property has a default value,
-it is optional when instantiating the record and PHP will assign the default value to the property.
+it is optional when instantiating the record, and PHP will assign the default value to the property.
 
 ``` php
 record Rectangle(int $x, int $y = 10);
@@ -170,48 +169,49 @@ var_dump(Rectangle(10)); // output a record with x: 10 and y: 10
 
 #### Auto-generated `with` method
 
-To enhance the usability of records, the RFC proposes automatically generating a `with` method for each record.
-This method allows for partial updates of properties, creating a new instance of the record with the specified
-properties updated.
+To make records more useful, the RFC proposes generating a `with` method for each record.
+This method allows for partial updates to the properties,
+creating a new instance of the record with the specified properties updated.
 
-The auto-generated `with` method accepts only named arguments defined in the constructor,
-except variadic arguments.
-For variadic arguments, these don’t require named arguments.
-No other property names can be used, and it returns a record object with the given values.
+##### How the with method works
 
-Example showing how this works with properties:
+**Named arguments**
 
-``` php
+The `with` method accepts only named arguments defined in the inline constructor.
+Properties not defined in the inline constructor can’t be updated by this method.
+
+**Variadic arguments**
+
+Variadic arguments from the inline constructor don’t require named arguments in the `with` method.
+However, mixing variadic arguments in the same `with` method call is not allowed by PHP syntax.
+
+Using named arguments:
+
+```php
 record UserId(int $id) {
   public string $serialNumber;
-  
+
   public function __construct() {
     $this->serialNumber = "U{$this->id}";
   }
 }
 
 $userId = UserId(1);
-$otherId = $userId->with(2); // failure due to not using named arguments
-$otherId = $userId->with(serialNumber: "U2"); // Error: serialNumber is not defined in the inline constructor
-$otherId = $userId->with(id: 2); // success
+$otherId = $userId->with(2); // Fails: Named arguments must be used
+$otherId = $userId->with(serialNumber: "U2"); // Error: serialNumber is not in the inline constructor
+$otherId = $userId->with(id: 2); // Success: id is updated
 ```
 
-Example showing how this works with variadic arguments,
-take note that PHP doesn’t allow sending variadic arguments with named arguments.
-Thus, the developer may need
-to perform multiple operations to construct a record from an existing one using variadic arguments.
+Using variadic arguments:
 
 ```php
 record Vector(int $dimensions, int ...$values);
 
 $vector = Vector(3, 1, 2, 3);
-$vector = $vector->with(4, 5, 6); // automatically sent to $values
-$vector = $vector->with(dimensions: 4, 1, 2, 3, 4); // Error: mixing named arguments with variadic arguments is not allowed by PHP syntax
-$vector = $vector->with(dimensions: 4)->with(1, 2, 3, 4); // set dimensions first, the set values.
+$vector = $vector->with(dimensions: 4); // Success: values are updated
+$vector = $vector->with(dimensions: 4, 1, 2, 3, 4); // Error: Mixing named and variadic arguments
+$vector = $vector->with(dimensions: 4)->with(1, 2, 3, 4); // Success: First update dimensions, then values
 ```
-
-This may look a bit confusing at first glance,
-but PHP currently doesn’t allow mixing named arguments with variadic arguments.
 
 ##### Custom with method
 
@@ -219,10 +219,14 @@ A developer may define their own `with` method if they so choose,
 and reference the generated `with` method using `parent::with()`.
 This allows a developer to define policies or constraints on how data is updated.
 
+Contravariance and covariance are enforced in the developer’s code:
+- Contravariance: the parameter type of the custom `with` method must be a supertype of the generated `with` method.
+- Covariance: the return type of the custom `with` method must be `self` of the generated `with` method.
+
 ``` php
 record Planet(string $name, int $population) {
   // create a with method that only accepts population updates
-  public function with(int $population) {
+  public function with(int $population): Planet {
     return parent::with(population: $population);
   }
 }
@@ -235,10 +239,15 @@ $mickey = $pluto->with(name: "Mickey"); // Error: no named argument for populati
 
 #### Constructors
 
-A **record** has two concepts of construction: the inline constructor and the traditional constructor.
+A **record** has two types of constructors: the inline constructor and the traditional constructor.
 
 The inline constructor is always required and must define at least one parameter.
-The traditional constructor is optional and can be used for further initialization logic.
+The traditional constructor is optional and can be used for further initialization logic,
+but must not accept any arguments.
+
+When a traditional constructor exists and is called,
+the properties are already initialized to the value of the inline constructor
+and are mutable until the end of the method, at which point they become immutable.
 
 ```php
 // Inline constructor
@@ -257,10 +266,6 @@ record User(string $name, string $email) {
 }
 ```
 
-When a traditional constructor exists and is called,
-the properties are already initialized to the value of the inline constructor
-and are mutable until the end of the method, at which point they become immutable.
-
 ### Mental models and how it works
 
 From the perspective of a developer, declaring a record declares an object and function with the same name.
@@ -274,32 +279,55 @@ record Point(int $x, int $y);
 
 // similar to declaring the following function and class
 
-class Point {
+// used during construction to allow immutability
+class Point_Implementation {
     public int $x;
     public int $y;
-    
+
     public function __construct() {}
+
+    public function with(...$parameters) {
+        // validity checks omitted for brevity
+        $parameters = array_merge([$this->x, $this->y], $parameters);
+        return Point(...$parameters);
+    }
+}
+
+// used to enforce immutability but has the same implementation
+readonly class Point {
+    public function __construct(public int $x, public int $y) {}
+
+    public function with(...$parameters) {
+        // validity checks omitted for brevity
+        $parameters = array_merge([$this->x, $this->y], $parameters);
+        return Point(...$parameters);
+    }
 }
 
 function Point(int $x, int $y): Point {
     static $points = [];
-    $key = "$x,$y";
+    // look up the identity of the point
+    $key = hash_func($x, $y);
     if ($points[$key] ?? null) {
+        // return an existing point
         return $points[$key];
     }
-    
-    $reflector = new \ReflectionClass(Point::class);
+
+    // create a new point
+    $reflector = new \ReflectionClass(Point_Implementation::class);
     $point = $reflector->newInstanceWithoutConstructor();
     $point->x = $x;
     $point->y = $y;
     $point->__construct();
-    $reflector->finalizeRecord($point);
+    // copy properties to an immutable point and return it
+    $point = new Point($point->x, $point->y);
     return $points[$key] = $point;
 }
 ```
 
-In reality, it isn’t too much different than what actually happens in C,
-except that the C version is more efficient and frees up memory when the object is no longer referenced.
+In reality, this is quite different from how it works in the engine,
+but this provides a mental model of how behavior should be expected to work.
+In other words, if it can work in the above model, then it be possible.
 
 ### Performance considerations
 
