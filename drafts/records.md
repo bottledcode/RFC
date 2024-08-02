@@ -243,7 +243,7 @@ A **record** has two types of constructors: the inline constructor and the tradi
 
 The inline constructor is always required and must define at least one parameter.
 The traditional constructor is optional and can be used for further initialization logic,
-but must not accept any arguments.
+but mustn’t accept any arguments.
 
 When a traditional constructor exists and is called,
 the properties are already initialized to the value of the inline constructor
@@ -275,7 +275,11 @@ as a factory function that creates a new object or retrieves an existing object 
 For example, this would be a valid mental model for a Point record:
 
 ```php
-record Point(int $x, int $y);
+record Point(int $x, int $y) {
+    public function add(Point $point): Point {
+        return Point($this->x + $point->x, $this->y + $point->y);
+    }
+}
 
 // similar to declaring the following function and class
 
@@ -291,16 +295,28 @@ class Point_Implementation {
         $parameters = array_merge([$this->x, $this->y], $parameters);
         return Point(...$parameters);
     }
+    
+    public function add(Point $point): Point {
+        return Point($this->x + $point->x, $this->y + $point->y);
+    }
+}
+
+interface Record {
+    public function with(...$parameters): self;
 }
 
 // used to enforce immutability but has the same implementation
-readonly class Point {
+readonly class Point implements Record {
     public function __construct(public int $x, public int $y) {}
 
-    public function with(...$parameters) {
+    public function with(...$parameters): self {
         // validity checks omitted for brevity
         $parameters = array_merge([$this->x, $this->y], $parameters);
         return Point(...$parameters);
+    }
+    
+    public function add(Point $point): Point {
+        return Point($this->x + $point->x, $this->y + $point->y);
     }
 }
 
@@ -395,99 +411,93 @@ $time2 = Time(5000);
 echo $time1 < $time2; // Outputs: true
 ```
 
+### Type hinting
+
+A `\Record` interface will be added to the engine to allow type hinting for records.
+All records implement this interface.
+
+```php
+function doSomething(\Record $record): void {
+    // ...
+}
+```
+
+The only method on the interface is `with`, which is a variadic method that accepts named arguments and returns `self`.
+
 ### Reflection
 
-Records can be interacted with via ReflectionClass, similar to readonly classes.
-For instance, a developer can inspect private properties but not change them, as records are immutable.
+A new reflection class will be added to support records:
+`ReflectionRecord` which will inherit from `ReflectionClass` and add a few additional methods:
 
-Developers may create new instances of records using ReflectionFunction or ReflectionClass. More on this below.
+- `ReflectionRecord::finalizeRecord(object $instance): Record`: Finalizes a record under construction, making it immutable.
+- `ReflectionRecord::isRecord(mixed $object): bool`: Returns `true` if the object is a record, and `false` otherwise.
+- `ReflectionRecord::getInlineConstructor(): ReflectionFunction`: Returns the inline constructor of the record as `ReflectionFunction`.
+- `ReflectionRecord::getTraditionalConstructor(): ReflectionMethod`: Returns the traditional constructor of the record as `ReflectionMethod`.
+- `ReflectionRecord::makeMutable(Record $instance): object`: Returns a new record instance with the properties mutable.
+- `ReflectionRecord::isMutable(Record $instance): bool`: Returns `true` if the record is mutable, and `false` otherwise.
 
-#### ReflectionClass support
+Using `ReflectionRecord` will allow developers to inspect records, their properties, and methods,
+as well as create new instances for testing or custom deserialization.
 
-It can be used to inspect records, their properties, and methods.
-Any attempt to modify finalized record properties via reflection will throw a `ReflectionException` exception,
-maintaining immutability.
+Attempting to use `ReflectionClass` or `ReflectionFunction` on a record will throw a `ReflectionException` exception.
 
-``` php
-$point = Point(3, 4);
-$reflection = new \ReflectionClass($point);
+#### finalizeRecord()
 
-foreach ($reflection->getProperties() as $property) {
-    echo $property->getName() . ': ' . $property->getValue($point) . PHP_EOL;
-}
-```
+The `finalizeRecord()` method is used to make a record immutable and look up its value in the internal cache,
+returning an instance that represents the finalized record.
 
-#### Immutability enforcement
+Calling `finalizeRecord()` on a record that has already been finalized will return the same instance.
 
-Attempts to modify record properties via reflection will throw a `ReflectionException` exception.
+#### isRecord()
 
-``` php
-try {
-    $property = $reflection->getProperty('x');
-    $property->setValue($point, 10); // This will throw an exception
-} catch (\ReflectionException $e) {
-    echo 'Exception: ' . $e->getMessage() . PHP_EOL; // "Cannot modify a record property"
-}
-```
+The `isRecord()` method is used to determine if an object is a record. It returns `true` if the object is a record,
 
-#### ReflectionFunction for inline constructor
+#### getInlineConstructor()
 
-Using `ReflectionFunction` on a record will reflect the inline constructor and can be used to construct new instances.
+The `getInlineConstructor()` method is used to get the inline constructor of a record as a `ReflectionFunction`.
+This can be used to inspect inlined properties and their types.
 
-``` php
-$constructor = new \ReflectionFunction('Geometry\Point');
-echo 'Constructor Parameters: ';
-foreach ($constructor->getParameters() as $param) {
-    echo $param->getName() . ' ';
-}
-```
+#### getTraditionalConstructor()
 
-#### Bypassing constructors
+The `getTraditionalConstructor()` method is used
+to get the traditional constructor of a record as a `ReflectionMethod`.
+This can be useful to inspect the constructor for further initialization.
 
-During custom deserialization, a developer may need to bypass constructors to fill in properties.
-Since records are mutable until the constructor is called,
-this can be done by setting the properties before calling `finalizeRecord()`.
+#### makeMutable()
 
-Note that until `finalizeRecord()` is called, any guarantees of immutability and value semantics are **not enforced**.
+The `makeMutable()` method is used to create a new instance of a record with mutable properties.
+The returned instance doesn’t provide any value semantics
+and should only be used for testing purposes or when there is no other option.
 
-```php
-record Point(int $x, int $y);
+A mutable record can be finalized again using `finalizeRecord()` and to the engine, these are regular classes.
+For example, `var_dump()` will output `object` instead of `record`.
 
-$example = Point(1, 2);
+#### isMutable()
 
-$pointReflector = new \ReflectionClass(Point::class);
-// create a new point while keeping the properties mutable.
-$point = $pointReflector->newInstanceWithoutConstructor();
-$point->x = 1;
-$point->y = 2;
-assert($example !== $point); // true
-$pointReflector->finalizeRecord($point);
-assert($example === $point); // true
-```
+The `isMutable()` method is used
+to determine if a record has been made mutable via `makeMutable()` or otherwise not yet finalized.
 
-Alternatively, a developer can use `ReflectionFunction` to get access to the inline constructor and call it directly:
+#### Custom deserialization example
+
+In cases where custom deserialization is required,
+a developer can use `ReflectionRecord` to manually construct a new instance of a record.
 
 ```php
-record Point(int $x, int $y);
+record Seconds(int $seconds);
 
-$example = Point(1, 2);
+$example = Seconds(5);
 
-$pointReflector = new \ReflectionFunction(Point::class);
-$point = $pointReflector->invoke(1, 2);
-
-assert($example === $point); // true
+$reflector = new ReflectionRecord(ExpirationDate::class);
+$expiration = $reflector->newInstanceWithoutConstructor();
+$expiration->seconds = 5;
+assert($example !== $expiration); // true
+$expiration = $reflector->finalizeRecord($expiration);
+assert($example === $expiration); // true
 ```
-
-#### New and/or modified functions and methods
-
-- Calling `is_object($record)` will return `true`.
-- A new function, `is_record($record)`, will return `true` for records, and `false` otherwise.
-- Calling `get_class($record)` will return the record name as a string.
-- A new method, `ReflectionClass::finalizeRecord($instance)`, will be added to finalize a record, making it immutable.
 
 ### var_dump
 
-When passed an instance of a record the `var_dump()` function will generate output the same
+When passed an instance of a record the `var_dump()` function will output the same
 as if an equivalent object were passed —
 e.g., both having the same properties — except the output generated will replace the prefix text "object"
 with the text "record."
