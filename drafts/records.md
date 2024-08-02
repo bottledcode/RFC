@@ -412,6 +412,43 @@ $time2 = Time(5000);
 echo $time1 < $time2; // Outputs: true
 ```
 
+#### Non-trivial values
+
+For non-trivial values (e.g., objects, closures, resources, etc.),
+the `===` operator will return `true` if the two operands reference the same object.
+
+For example, if two different DateTime records reference the exact same date
+and are stored in a record, the records will not be considered equal:
+
+```php
+$date1 = DateTime('2024-07-19');
+$date2 = DateTime('2024-07-19');
+
+record Date(DateTime $date);
+
+$dateRecord1 = Date($date1);
+$dateRecord2 = Date($date2);
+
+echo $dateRecord1 === $dateRecord2; // Outputs: false
+```
+
+However, this can be worked around by being a bit creative (see: mental model):
+
+```php
+record Date(string $date) {
+    public DateTime $datetime;
+    
+    public function __construct() {
+        $this->datetime = new DateTime($this->date);
+    }
+}
+
+$date1 = Date('2024-07-19');
+$date2 = Date('2024-07-19');
+
+echo $date1->datetime === $date2->datetime; // Outputs: true
+```
+
 ### Type hinting
 
 A `\Record` interface will be added to the engine to allow type hinting for records.
@@ -571,6 +608,8 @@ To-do
 None.
 
 ## Future Scope
+
+- Records for "record-like" types, such as DateTime, DateInterval, and others.
 
 ## Proposed Voting Choices
 
