@@ -67,7 +67,7 @@ because the function expects a `UserId` object instead of a plain integer.
 
 ## Proposal
 
-This RFC proposes the introduction of a `record` keyword in PHP to define immutable value objects. 
+This RFC proposes the introduction of a `record` keyword in PHP to define immutable value objects.
 These objects will allow properties to be initialized concisely
 and will provide built-in methods for common operations such as modifying properties,
 performing equality checks, and using a function-like instantiation syntax.
