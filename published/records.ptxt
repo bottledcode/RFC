@@ -12,12 +12,12 @@ This RFC proposes the introduction of ''%%record%%'' objects, which are immutabl
 
 ==== Value objects ====
 
-Value objects are immutable objects that represent a value. They are used for storing values with a different meaning than their technical value, adding additional semantic context to the value. For example, a ''%%Point%%'' object with ''%%x%%'' and ''%%y%%'' properties can represent a point in a 2D space, and an ''%%ExpirationDate%%'' can represent a date when something expires. This prevents developers from accidentally using the wrong value in the wrong context.
+Value objects are immutable objects that represent a value. They’re used for storing values with a different meaning than their technical value, adding additional semantic context to the value. For example, a ''%%Point%%'' object with ''%%x%%'' and ''%%y%%'' properties can represent a point in a 2D space, and an ''%%ExpirationDate%%'' can represent a date when something expires. This prevents developers from accidentally using the wrong value in the wrong context.
 
-Consider this example:
+Consider this example where a function accepts an integer as a user ID, and the id is accidentally set to a non-sensical value:
 
 <code php>
-function updateUserRole(int $userId, Role $role): void {
+function updateUserRole(int $userId, string $role): void {
     // ...
 }
 
@@ -26,23 +26,21 @@ $uid = $user->id;
 // ...
 $uid = 5; // somehow accidentally sets uid to an unrelated integer
 // ...
-updateUserRole($uid, Role::ADMIN()); // accidental passing of 
+updateUserRole($uid, 'admin'); // accidental passing of a non-sensical value for uid
 </code>
 
-In this example, the uid is accidentally set to a plain integer, and updateUserRole is called with the wrong value.
-
-Currently, the only solution to this is to use a class, but this requires a lot of boilerplate code.
+Currently, the only solution to this is to use a class, but this requires a lot of boilerplate code. Further, ''%%readonly%%'' classes have a lot of edge cases and are rather unwieldy.
 
 === The solution ===
 
 Like arrays, strings, and other values, ''%%record%%'' objects are strongly equal to each other if they contain the same values.
 
-Let's take a look, using the previous example:
+Let’s take a look at the updated example, using a ''%%record%%'' type for ''%%UserId%%''. Thus, if someone were to pass an ''%%int%%'' to ''%%updateUserRole%%'', it would throw an error:
 
 <code php>
 record UserId(int $id);
 
-function updateUserRole(UserId $userId, Role $role): void {
+function updateUserRole(UserId $userId, string $role): void {
     // ...
 }
 
@@ -51,26 +49,32 @@ $uid = $user->id; // $uid is a UserId object
 // ...
 $uid = 5;
 // ...
-updateUserRole($uid, Role::ADMIN()); // This will throw an error
+updateUserRole($uid, 'admin'); // This will throw an error
 </code>
 
-Now, if ''%%$uid%%'' is accidentally set to an integer, the call to ''%%updateUserRole%%'' will throw an error because the type is not correct.
+Now, if ''%%$uid%%'' is accidentally set to an integer, the call to ''%%updateUserRole%%'' will throw a ''%%TypeError%%'' because the function expects a ''%%UserId%%'' object instead of a plain integer.
 
 ===== Proposal =====
 
-This RFC proposes the introduction of a new record keyword in PHP to define immutable data objects. These objects will allow properties to be initialized concisely and will provide built-in methods for common operations such as modifying properties and equality checks using a function-like instantiation syntax. Records can implement interfaces and use traits but cannot extend other records or classes; composition is allowed, however.
+This RFC proposes the introduction of a new record keyword in PHP to define immutable data objects. These objects will allow properties to be initialized concisely and will provide built-in methods for common operations such as modifying properties and equality checks using a function-like instantiation syntax. Records can implement interfaces and use traits but can’t extend other records or classes; composition is allowed, however.
 
 ==== Syntax and semantics ====
 
 === Definition ===
 
-A ''%%record%%'' is defined by the word "record", followed by the name of its type, an open parenthesis containing one or more typed parameters that become public, immutable, properties. They may optionally implement an interface using the ''%%implements%%'' keyword. A ''%%record%%'' body is optional.
+A **record** is defined by the keyword ''%%record%%'', followed by the name of its type (e.g., ''%%UserId%%''), and then must list one or more typed parameters (e.g., ''%%int $id%%'') that become properties of the record. A parameter may provide ''%%private%%'' or ''%%public%%'' modifiers, but are ''%%public%%'' by default. This is referred to as the "inline constructor."
 
-A ''%%record%%'' may contain a constructor with zero arguments to perform further initialization if required. If it does not have a constructor, an implicit, empty contstructor is provided.
+A **record** may optionally implement an interface using the ''%%implements%%'' keyword, which may optionally be followed by a record body enclosed in curly braces ''%%{}%%''.
 
-A ''%%record%%'' body may contain property hooks, methods, and use traits (so long as they do not conflict with ''%%record%%'' rules). Regular properties may also be defined, but they are immutable by default and are no different from ''%%const%%''.
+A **record** may not extend another record or class.
 
-Static properties and methods are forbidden in a ''%%record%%'' (this includes ''%%const%%'', a regular property may be used instead). Attempting to define static properties, methods, constants results in a compilation error.
+A **record** may contain a traditional constructor with zero arguments to perform further initialization, but if it does, it must take zero arguments.
+
+A **record** body may contain property hooks, methods, and use traits.
+
+A **record** body may also declare properties whose values are only mutable during a constructor call. At any other time the property is immutable.
+
+A **record** body may also contain static methods and properties, which behave identically to class static methods and properties. They may be accessed using the ''%%::%%'' operator.
 
 <code php>
 namespace Paint;
@@ -121,11 +125,13 @@ record PaintBucket(StockPaint ...$constituents) {
 
 === Usage ===
 
-A ''%%record%%'' may be used any where a ''%%readonly class%%'' can be used, as the behavior of it is very similar with no key differences to assist in migration from ''%%readonly class%%''.
+A record may be used as a readonly class, as the behavior of the two is very similar, which should be able to assist in migrating from one implementation to another.
 
 === Optional parameters and default values ===
 
 A ''%%record%%'' can also be defined with optional parameters that are set if omitted during instantiation.
+
+One or more properties defined in the inline constructor may have a default value declared using the same syntax and rules as any other default parameter declared in methods/functions. If a property has a default value, it is optional when instantiating the record and PHP will assign the default value to the property.
 
 <code php>
 record Rectangle(int $x, int $y = 10);
@@ -136,21 +142,45 @@ var_dump(Rectangle(10)); // output a record with x: 10 and y: 10
 
 To enhance the usability of records, the RFC proposes automatically generating a ''%%with%%'' method for each record. This method allows for partial updates of properties, creating a new instance of the record with the specified properties updated.
 
-The auto-generated ''%%with%%'' method accepts only named arguments defined in the constructor. No other property names can be used, and it returns a record object with the given values.
+The auto-generated ''%%with%%'' method accepts only named arguments defined in the constructor, except variadic arguments. For variadic arguments, these don’t require named arguments. No other property names can be used, and it returns a record object with the given values.
+
+Example showing how this works with properties:
 
 <code php>
-$point1 = Point(3, 4);
-$point2 = $point1->with(x: 5);
-$point3 = $point1->with(null, 10); // must use named arguments
+record UserId(int $id) {
+  public string $serialNumber;
+  
+  public function __construct() {
+    $this->serialNumber = "U{$this->id}";
+  }
+}
 
-echo $point1->x; // Outputs: 3
-echo $point2->x; // Outputs: 5
+$userId = UserId(1);
+$otherId = $userId->with(2); // failure due to not using named arguments
+$otherId = $userId->with(serialNumber: "U2"); // serialNumber is not defined in the inline constructor
+$otherId = $userId->with(id: 2); // success
 </code>
+
+Example showing how this works with variadic arguments, take note that PHP doesn’t allow sending variadic arguments with named arguments. Thus, the developer may need to perform multiple operations to construct a new record from an existing one using variadic arguments.
+
+<code php>
+record Vector(int $dimensions, int ...$values);
+
+$vector = Vector(3, 1, 2, 3);
+$vector = $vector->with(4, 5, 6); // automatically sent to $values
+$vector = $vector->with(dimensions: 4, 1, 2, 3, 4); // not allowed by PHP syntax
+$vector = $vector->with(dimensions: 4)->with(1, 2, 3, 4); // set dimensions first, the set values.
+</code>
+
+This may look a bit confusing at first glance, but PHP currently doesn’t allow mixing named arguments with variadic arguments.
+
+== Custom with method ==
 
 A developer may define their own ''%%with%%'' method if they so choose, and reference the generated ''%%with%%'' method using ''%%parent::with()%%''. This allows a developer to define policies or constraints on how data is updated.
 
 <code php>
 record Planet(string $name, int $population) {
+  // create a with method that only accepts population updates
   public function with(int $population) {
     return parent::with(population: $population);
   }
@@ -159,17 +189,21 @@ $pluto = Planet("Pluto", 0);
 // we made it!
 $pluto = $pluto->with(population: 1);
 // and then we changed the name
-$mickey = $pluto->with(name: "Mickey"); // no named argument for population error
+$mickey = $pluto->with(name: "Mickey"); // ERROR: no named argument for population
 </code>
 
 === Constructors ===
 
-Optionally, they may also define a constructor to provide validation or other initialization logic:
+A **record** has two concepts of construction: the inline constructor and the traditional constructor.
+
+The inline constructor is always required and must define at least one parameter. The traditional constructor is optional and can be used for further initialization logic; it must take zero arguments.
 
 <code php>
+// Inline constructor
 record User(string $name, string $email) {
   public string $id;
 
+  // Traditional constructor
   public function __construct() {
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
       throw new InvalidArgumentException("Invalid email address");
@@ -181,18 +215,55 @@ record User(string $name, string $email) {
 }
 </code>
 
-During construction, a ''%%record%%'' is fully mutable. This allows the developer freedom to mutate properties as needed to ensure a canonical representation of an object.
+When a traditional constructor exists and is called, the properties are already initialized to the value of the inline constructor and are mutable until the end of the method, at which point they become immutable.
+
+==== Mental models and how it works ====
+
+From the perspective of a developer, declaring a record declares an object and function with the same name. The developer can consider the record function (the inline constructor) as a factory function that creates a new object or uses an existing object from an array.
+
+For example, this would be a valid mental model for a Point record:
+
+<code php>
+record Point(int $x, int $y);
+
+// similar to declaring the following function and class
+
+class Point {
+    public int $x;
+    public int $y;
+    
+    public function __construct() {}
+}
+
+function Point(int $x, int $y): Point {
+    static $points = [];
+    $key = "$x,$y";
+    if ($points[$key] ?? null) {
+        return $points[$key];
+    }
+    
+    $reflector = new \ReflectionClass(Point::class);
+    $point = $reflector->newInstanceWithoutConstructor();
+    $point->x = $x;
+    $point->y = $y;
+    $point->__construct();
+    $reflector->finalizeRecord($point);
+    return $points[$key] = $point;
+}
+</code>
+
+In reality, it isn’t too much different than what actually happens in C, except that the C version is more efficient and frees up memory when the object is no longer referenced.
 
 ==== Performance considerations ====
 
-To ensure that records are both performant and memory-efficient, the RFC proposes leveraging PHP's copy-on-write (COW) semantics (similar to arrays) and interning values. Unlike interned strings, the garbage collector will be allowed to clean up these interned records when they are no longer needed.
+To ensure that records are both performant and memory-efficient, the RFC proposes leveraging PHP’s copy-on-write (COW) semantics (similar to arrays) and interning values. Unlike interned strings, the garbage collector will be allowed to clean up these interned records when they’re no longer necessary.
 
 <code php>
 $point1 = Point(3, 4);
 $point2 = $point1; // No data duplication, $point2 references the same data as $point1
-$point3 = Point(3, 4); // No data duplication here either, it is pointing the the same memory as $point1
+$point3 = Point(3, 4); // No data duplication, it is pointing the the same memory as $point1
 
-$point4 = $point1->with(x: 5); // Data duplication occurs here, creating a new instance with modified data
+$point4 = $point1->with(x: 5); // Data duplication occurs here, creating a new instance
 </code>
 
 === Cloning and with() ===
@@ -242,11 +313,13 @@ echo $time1 < $time2; // Outputs: true
 
 ==== Reflection ====
 
-Records in PHP will be fully supported by the reflection API, providing access to their properties and methods just like regular classes. However, immutability and special instantiation rules will be enforced.
+Records can be interacted with via ReflectionClass, similar to readonly classes. For instance, a developer can inspect private properties but not change them as records are immutable.
+
+Developers may create new instances of records using ReflectionFunction or ReflectionClass. More on this below.
 
 === ReflectionClass support ===
 
-It can be used to inspect records, their properties, and methods. Any attempt to modify record properties via reflection will throw an exception, maintaining immutability. Attempting to create a new instance via ''%%ReflectionClass%%'' will cause a ''%%ReflectionException%%'' to be thrown.
+It can be used to inspect records, their properties, and methods. Any attempt to modify record properties via reflection will throw an exception, maintaining immutability.
 
 <code php>
 $point = Point(3, 4);
@@ -259,7 +332,7 @@ foreach ($reflection->getProperties() as $property) {
 
 === Immutability enforcement ===
 
-Attempts to modify record properties via reflection will throw an exception.
+Attempts to modify record properties via reflection will throw a ''%%ReflectionException%%'' exception.
 
 <code php>
 try {
@@ -270,9 +343,9 @@ try {
 }
 </code>
 
-=== ReflectionFunction for implicit constructor ===
+=== ReflectionFunction for inline constructor ===
 
-Using ''%%ReflectionFunction%%'' on a record will reflect the constructor.
+Using ''%%ReflectionFunction%%'' on a record will reflect the inline constructor and can be used to construct new instances.
 
 <code php>
 $constructor = new \ReflectionFunction('Geometry\Point');
@@ -282,15 +355,50 @@ foreach ($constructor->getParameters() as $param) {
 }
 </code>
 
-=== New functions and methods ===
+=== Bypassing constructors ===
+
+During custom deserialization, a developer may need to bypass constructors to fill in properties. Since records are mutable until the constructor is called, this can be done by setting the properties before calling ''%%finalizeRecord()%%''.
+
+Note that until ''%%finalizeRecord()%%'' is called, any guarantees of immutability and value semantics are **not enforced**.
+
+<code php>
+record Point(int $x, int $y);
+
+$example = Point(1, 2);
+
+$pointReflector = new \ReflectionClass(Point::class);
+// create a new point while keeping the properties mutable.
+$point = $pointReflector->newInstanceWithoutConstructor();
+$point->x = 1;
+$point->y = 2;
+assert($example !== $point); // true
+$pointReflector->finalizeRecord($point);
+assert($example === $point); // true
+</code>
+
+Alternatively, a developer can use ''%%ReflectionFunction%%'' to get access to the inline constructor and call it directly:
+
+<code php>
+record Point(int $x, int $y);
+
+$example = Point(1, 2);
+
+$pointReflector = new \ReflectionFunction(Point::class);
+$point = $pointReflector->invoke(1, 2);
+
+assert($example === $point); // true
+</code>
+
+=== New and/or modified functions and methods ===
 
   * Calling ''%%is_object($record)%%'' will return ''%%true%%''.
-  * A new function, ''%%is_record($record)%%'', will return ''%%true%%'' for records, and ''%%false%%'' otherwise
-  * Calling ''%%get_class($record)%%'' will return the record name
+  * A new function, ''%%is_record($record)%%'', will return ''%%true%%'' for records, and ''%%false%%'' otherwise.
+  * Calling ''%%get_class($record)%%'' will return the record name as a string.
+  * A new method, ''%%ReflectionClass::finalizeRecord($instance)%%'', will be added to finalize a record, making it immutable.
 
 ==== var_dump ====
 
-Calling ''%%var_dump%%'' will look much like it does for objects, but instead of ''%%object%%'' it will say ''%%record%%''.
+When passed an instance of a record the ''%%var_dump()%%'' function will generate output the same as if an equivalent object was passed — e.g., both having the same properties — except the output generated will replace the prefix text "object" with the text "record."
 
 <code txt>
 record(Point)#1 (2) {
@@ -307,11 +415,15 @@ A ''%%record%%'' cannot be named after an existing ''%%record%%'', ''%%class%%''
 
 ==== Autoloading ====
 
-As invoking a record value by its name looks remarkably similar to calling a function, and PHP has no function autoloader, autoloading will not be supported in this implementation. If function autoloading were to be implemented in the future, an autoloader could locate the ''%%record%%'' and autoload it. The author of this RFC strongly encourages someone to put forward a function autoloading RFC if autoloading is desired for records.
+This RFC chooses to omit autoloading from the specification for a record. The reason is that instantiating a record calls the function implicitly declared when the record is explicitly declared, PHP doesn’t currently support autoloading functions, and solving function autoloading is out-of-scope for this RFC.
+
+Once function autoloading is implemented in PHP at some hopeful point in the future, said autoloader could locate the record and then autoload it.
+
+The author of this RFC strongly encourages someone to put forward a function autoloading RFC if autoloading is desired for records.
 
 ===== Backward Incompatible Changes =====
 
-No backward incompatible changes.
+To avoid conflicts with existing code, the ''%%record%%'' keyword will be handled similarly to ''%%enum%%'' to prevent backward compatibility issues.
 
 ===== Proposed PHP Version(s) =====
 
@@ -351,7 +463,7 @@ None.
 
 ===== Proposed Voting Choices =====
 
-Include these so readers know where you are heading and can discuss the proposed voting options.
+Include these so readers know where you’re heading and can discuss the proposed voting options.
 
 ===== Patches and Tests =====
 
