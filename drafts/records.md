@@ -13,9 +13,9 @@ with [value semantics](https://en.wikipedia.org/wiki/Value_semantics).
 
 ### Value objects
 
-Value objects are immutable objects that represent a value. They’re used for storing values with a different meaning
-than
-their technical value, adding additional semantic context to the value.
+Value objects are immutable objects that represent a value.
+They’re used to store values with a different meaning than their technical value,
+adding additional semantic context to the value.
 For example, a `Point` object with `x` and `y` properties can represent a point in a 2D space,
 and an `ExpirationDate` can represent a date when something expires.
 This prevents developers from accidentally using the wrong value in the wrong context.
@@ -36,7 +36,7 @@ $uid = 5; // somehow accidentally sets uid to an unrelated integer
 updateUserRole($uid, 'admin'); // accidental passing of a non-sensical value for uid
 ```
 
-Currently, the only solution to this is to use a class, but this requires a lot of boilerplate code.
+Currently, the only solution to this is to use a class, but this requires significant boilerplate code.
 Further, `readonly` classes have numerous edge cases and are rather unwieldy.
 
 #### The solution
@@ -152,7 +152,7 @@ record PaintBucket(StockPaint ...$constituents) {
 
 A record may be used as a readonly class,
 as the behavior of the two is very similar,
-which should be able to assist in migrating from one implementation to another.
+assisting in migrating from one implementation to another.
 
 #### Optional parameters and default values
 
@@ -192,7 +192,7 @@ record UserId(int $id) {
 
 $userId = UserId(1);
 $otherId = $userId->with(2); // failure due to not using named arguments
-$otherId = $userId->with(serialNumber: "U2"); // serialNumber is not defined in the inline constructor
+$otherId = $userId->with(serialNumber: "U2"); // Error: serialNumber is not defined in the inline constructor
 $otherId = $userId->with(id: 2); // success
 ```
 
@@ -206,7 +206,7 @@ record Vector(int $dimensions, int ...$values);
 
 $vector = Vector(3, 1, 2, 3);
 $vector = $vector->with(4, 5, 6); // automatically sent to $values
-$vector = $vector->with(dimensions: 4, 1, 2, 3, 4); // not allowed by PHP syntax
+$vector = $vector->with(dimensions: 4, 1, 2, 3, 4); // Error: mixing named arguments with variadic arguments is not allowed by PHP syntax
 $vector = $vector->with(dimensions: 4)->with(1, 2, 3, 4); // set dimensions first, the set values.
 ```
 
@@ -230,7 +230,7 @@ $pluto = Planet("Pluto", 0);
 // we made it!
 $pluto = $pluto->with(population: 1);
 // and then we changed the name
-$mickey = $pluto->with(name: "Mickey"); // ERROR: no named argument for population
+$mickey = $pluto->with(name: "Mickey"); // Error: no named argument for population
 ```
 
 #### Constructors
@@ -238,7 +238,7 @@ $mickey = $pluto->with(name: "Mickey"); // ERROR: no named argument for populati
 A **record** has two concepts of construction: the inline constructor and the traditional constructor.
 
 The inline constructor is always required and must define at least one parameter.
-The traditional constructor is optional and can be used for further initialization logic; it must take zero arguments.
+The traditional constructor is optional and can be used for further initialization logic.
 
 ```php
 // Inline constructor
@@ -265,7 +265,7 @@ and are mutable until the end of the method, at which point they become immutabl
 
 From the perspective of a developer, declaring a record declares an object and function with the same name.
 The developer can consider the record function (the inline constructor)
-as a factory function that creates a new object or uses an existing object from an array.
+as a factory function that creates a new object or retrieves an existing object from an array.
 
 For example, this would be a valid mental model for a Point record:
 
@@ -311,7 +311,7 @@ longer necessary.
 ``` php
 $point1 = Point(3, 4);
 $point2 = $point1; // No data duplication, $point2 references the same data as $point1
-$point3 = Point(3, 4); // No data duplication, it is pointing the the same memory as $point1
+$point3 = Point(3, 4); // No data duplication, it is pointing to the same memory as $point1
 
 $point4 = $point1->with(x: 5); // Data duplication occurs here, creating a new instance
 ```
@@ -376,8 +376,9 @@ Developers may create new instances of records using ReflectionFunction or Refle
 
 #### ReflectionClass support
 
-It can be used to inspect records, their properties, and methods. Any attempt to modify record properties
-via reflection will throw an exception, maintaining immutability.
+It can be used to inspect records, their properties, and methods.
+Any attempt to modify finalized record properties via reflection will throw a `ReflectionException` exception,
+maintaining immutability.
 
 ``` php
 $point = Point(3, 4);
@@ -474,8 +475,8 @@ record(Point)#1 (2) {
 
 ### Considerations for implementations
 
-A `record` cannot be named after an existing `record`, `class` or `function`. This is because defining a `record`
-creates both a `class` and a `function` with the same name.
+A `record` cannot share its name with an existing `record`, `class`, or `function` because defining a `record` creates
+both a `class` and a `function` with the same name.
 
 ### Autoloading
 
