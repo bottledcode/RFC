@@ -36,18 +36,18 @@ However, if a function
 
 then the autoloader will be called with the current namespace prepended to the function name. If the autoloader chooses to look up the "basename" of the function, it may do so.
 
-Example ''%%PSR-4-style%%'' (one function per file) function autoloader:
+Example "''%%PSR-4-style%%''" (except the last part of the namespace is the file it is in) function autoloader:
 
 <code php>
 <?php
 
 spl_autoload_register(function ($function, $type) {
     if ($type === SPL_AUTOLOAD_FUNCTION) {
-        $function = str_replace('\\', DIRECTORY_SEPARATOR, $function);
-        $file = __DIR__ . '/functions/' . $function . '.php';
+        $function_path = dirname(str_replace('\\', DIRECTORY_SEPARATOR, $function));
+        $file = __DIR__ . '/functions/' . $function_path . '.php';
 
         if (file_exists($file)) {
-            require $file;
+            require_once $file;
         }
     }
 }, false, false, SPL_AUTOLOAD_FUNCTION);
