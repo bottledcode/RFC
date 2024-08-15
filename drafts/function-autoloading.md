@@ -19,7 +19,7 @@ there are a few terms worth acknowledging so that the proposal can be easily dis
 1. **Defined function**: A function that the engine has knowledge of, such as in a previously included/required file.
 2. **Undefined function**: A function that the engine does not have knowledge of.
 3. **Function autoloading**: The process of loading a function that is not defined.
-4. **Written function**: A function that is defined in a file.
+4. **Written function**: A function that exists in a file that the engine may or may not have knowledge of.
 5. **Local scope**: The current namespace
 6. **Global scope**: The global namespace (`\`)
 
