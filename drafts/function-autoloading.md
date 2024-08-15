@@ -13,6 +13,16 @@ implementation which would be consistent with what we have for autoloading class
 
 ## Proposal
 
+Before getting into the details,
+there are a few terms worth acknowledging so that the proposal can be easily discussed without getting confused:
+
+1. **Defined function**: A function that the engine has knowledge of, such as in a previously included/required file.
+2. **Undefined function**: A function that the engine does not have knowledge of.
+3. **Function autoloading**: The process of loading a function that is not defined.
+4. **Written function**: A function that is defined in a file.
+5. **Local scope**: The current namespace
+6. **Global scope**: The global namespace (`\`)
+
 The suggested change would be pretty straightforward and backwards-compatible:
 
 1. Add two new constants to spl: SPL_AUTOLOAD_CLASS, SPL_AUTOLOAD_FUNCTION.
@@ -25,8 +35,8 @@ The suggested change would be pretty straightforward and backwards-compatible:
 There won’t be any changes to the current autoloading mechanism when it comes to classes.
 However, if a function
 
-1. is called in a fully qualified form (e.g., a `use` statement or `\` prefix is used)
-2. is not defined
+1. is called in a fully qualified form (e.g., a `use` statement or `\` prefix is used),
+2. is not defined,
 3. and an autoloader is registered with the SPL_AUTOLOAD_FUNCTION type
 
 then the autoloader will be called with the function name as the first parameter (with the initial slash removed) and
@@ -34,12 +44,19 @@ SPL_AUTOLOAD_FUNCTION as the second parameter.
 
 However, if a function
 
-1. is called in an unqualified form (e.g., `strlen()`)
-2. is not defined locally or globally
+1. is called in an unqualified form (e.g., `strlen()`),
+2. is not defined locally
 3. and an autoloader is registered with the SPL_AUTOLOAD_FUNCTION type
 
 then the autoloader will be called with the current namespace prepended to the function name.
 If the autoloader chooses to look up the "basename" of the function, it may do so.
+If the function is still undefined in the local scope,
+then it will fall back to the global scope—unless the local scope is the global scope.
+The function autoloader will not be called again.
+
+This provides an opportunity
+for an autoloader to check for the existence of a function in the local scope and define it,
+as well as defer to the global scope if it is not defined.
 
 Example "`PSR-4-style`" (except the last part of the namespace is the file it is in) function autoloader: 
 
@@ -57,6 +74,34 @@ spl_autoload_register(function ($function, $type) {
     }
 }, false, false, SPL_AUTOLOAD_FUNCTION);
 ```
+
+Performance-wise, this should have minimal impact on existing codebases as there is no default function autoloader.
+
+For codebases that want to take advantage of function autoloading,
+it may be desirable to stick with FQNs for functions and/or employ caches and other techniques where possible. 
+
+### spl_autoload
+
+The `spl_autoload` function will not be updated.
+For backwards compatibility,
+there will be no changes to class autoloading and there will not be a default function autoloader.
+
+### spl_autoload_call
+
+The `spl_autoload_call` function will be modified to accept a second parameter of one,
+(but not both) of the new constants,
+with the default value set to SPL_AUTOLOAD_CLASS.
+The name of the first parameter will be changed to `$name` to reflect that it can be a class or function name.
+
+```php
+spl_autoload_call('\Some\func', SPL_AUTOLOAD_FUNCTION); // Calls the function autoloader
+spl_autoload_call('\Some\func'); // Calls the class autoloader
+spl_autoload_call('Some\func', SPL_AUTOLOAD_CLASS); // Calls the class autoloader
+spl_autoload_call('Some\func'); // Calls the class autoloader
+spl_autoload_call('func', SPL_AUTOLOAD_FUNCTION | SPL_AUTOLOAD_CLASS); // Error: Cannot autoload multiple types
+```
+
+If the user wants to call multiple autoloaders, they can do so manually.
 
 ## Backward Incompatible Changes
 
