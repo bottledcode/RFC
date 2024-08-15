@@ -1,10 +1,10 @@
-# PHP RFC: Function Autoloading v3
+# PHP RFC: Function Autoloading v4
 
-* Version: 0.9
-* Date: 2013-02-24 (use today's date here)
+* Version: 1.0
+* Date: 2024-08-15
 * Author: Robert Landers, landers.robert@gmail.com
-* Status: Draft (or Under Discussion or Accepted or Declined)
-* First Published at: <http://wiki.php.net/rfc/your_rfc_name>
+* Status: Under Discussion (or Accepted or Declined)
+* First Published at: <http://wiki.php.net/rfc/function_autoloading4>
 
 ## Introduction
 
@@ -19,7 +19,6 @@ The suggested change would be pretty straightforward and backwards-compatible:
 2. Add a fourth optional parameter for spl_autoload_register, with a default value of SPL_AUTOLOAD_CLASS.
 3. The type for the missing token should also be passed to the $autoload_function callback as a second param. (e.g.,
    SPL_AUTOLOAD_CLASS for classes, SPL_AUTOLOAD_FUNCTION for functions)
-    1. This is necessary to be able to handle multiple types of tokens with a common callback.
 4. Change the current class autoloading to only call the autoloaders which match with the SPL_AUTOLOAD_CLASS types.
 5. Add the function autoloading to only call the autoloaders which match with the SPL_AUTOLOAD_FUNCTION types.
 
@@ -37,13 +36,10 @@ However, if a function
 
 1. is called in an unqualified form (e.g., `strlen()`)
 2. is not defined locally or globally
+3. and an autoloader is registered with the SPL_AUTOLOAD_FUNCTION type
 
-then the autoloader will be called exactly once.
-
-This prevents unnecessary calls from being made to the autoloader,
-as PHP searches in the "local" scope and the "global" scope.
-If the function is _still_ not defined after this search,
 then the autoloader will be called with the current namespace prepended to the function name.
+If the autoloader chooses to look up the "basename" of the function, it may do so.
 
 Example `PSR-4-style` (one function per file) function autoloader: 
 
