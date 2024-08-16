@@ -93,12 +93,6 @@ The `spl_autoload_call` function will be modified to accept a second parameter o
 with the default value set to SPL_AUTOLOAD_CLASS.
 The name of the first parameter will be changed to `$name` to reflect that it can be a class or function name.
 
-### function_exists
-
-The `function_exists` function will be updated to include a boolean option (`$autoload`) as the second parameter,
-which will default to `true`.
-If set to `true`, the function autoloader will be called if the function is not defined, otherwise, it will not be called.
-
 ```php
 spl_autoload_call('\Some\func', SPL_AUTOLOAD_FUNCTION); // Calls the function autoloader
 spl_autoload_call('\Some\func'); // Calls the class autoloader
@@ -108,6 +102,13 @@ spl_autoload_call('func', SPL_AUTOLOAD_FUNCTION | SPL_AUTOLOAD_CLASS); // Error:
 ```
 
 If the user wants to call multiple autoloaders, they can do so manually.
+
+
+### function_exists
+
+The `function_exists` function will be updated to include a boolean option (`$autoload`) as the second parameter,
+which will default to `true`.
+If set to `true`, the function autoloader will be called if the function is not defined, otherwise, it will not be called.
 
 ## Backward Incompatible Changes
 
