@@ -10,6 +10,10 @@
 
 The topic of supporting function autoloading was brought up many times in the past, this RFC introduces a potential implementation which would be consistent with what we have for autoloading classes.
 
+By adding function autoload support, we can make it easier for new developers to use the language.
+
+By using autoloaders (such as composer), users can already get quickly up to speed when it comes to classes, but the language currently lacks a way to do the same for functions. This requires users to manually (and carefully) include files that must be included on every request. For 'functional' codebases, they lose the ability to use autoloaders, or they must write their functions as static methods on classes. This isn’t ideal, and this RFC seeks to close the gap between functions and classes.
+
 ===== Proposal =====
 
 Before getting into the details, there are a few terms worth acknowledging so that the proposal can be easily discussed without getting confused:
