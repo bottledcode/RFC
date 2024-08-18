@@ -128,7 +128,7 @@ it may fail or perform unexpected behavior when it receives a second argument of
 
 ### To Opcache
 
-To be determined.
+Update: Analyze potential Opcache changes or optimizations needed for function autoloading.
 
 ### New Constants
 

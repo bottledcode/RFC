@@ -106,7 +106,7 @@ If an autoloader was registered that can accept more than one argument, it may f
 
 ==== To Opcache ====
 
-To be determined.
+Update: Analyze potential Opcache changes or optimizations needed for function autoloading.
 
 ==== New Constants ====
 
