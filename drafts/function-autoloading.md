@@ -98,10 +98,9 @@ with the default value set to SPL_AUTOLOAD_CLASS.
 The name of the first parameter will be changed to `$name` to reflect that it can be a class or function name.
 
 ```php
-spl_autoload_call('\Some\func', SPL_AUTOLOAD_FUNCTION); // Calls the function autoloader
-spl_autoload_call('\Some\func'); // Calls the class autoloader
-spl_autoload_call('Some\func', SPL_AUTOLOAD_CLASS); // Calls the class autoloader
+spl_autoload_call('Some\func', SPL_AUTOLOAD_FUNCTION); // Calls the function autoloader
 spl_autoload_call('Some\func'); // Calls the class autoloader
+spl_autoload_call('Some\func', SPL_AUTOLOAD_CLASS); // Calls the class autoloader
 spl_autoload_call('func', SPL_AUTOLOAD_FUNCTION | SPL_AUTOLOAD_CLASS); // Error: Cannot autoload multiple types
 ```
 
@@ -129,7 +128,7 @@ it may fail or perform unexpected behavior when it receives a second argument of
 
 ### To Opcache
 
-Update: Analyze potential Opcache changes or optimizations needed for function autoloading.
+- Potential changes to JIT helpers to call the autoloader instead of reading from the function table directly.
 
 ### New Constants
 
@@ -137,7 +136,7 @@ Two new constants will be added to the SPL extension: SPL_AUTOLOAD_CLASS, SPL_AU
 
 ## Open Issues
 
-To be determined.
+None at this time.
 
 ## Future Scope
 
@@ -157,10 +156,9 @@ Review the implementation [on GitHub #15471](https://github.com/php/php-src/pull
 
 ## Implementation
 
-After the project is implemented, this section should contain - the
-version(s) it was merged into - a link to the git commit(s) - a link to
-the PHP manual entry for the feature - a link to the language
-specification section (if any)
+- Implentation: [PR #15471](https://github.com/php/php-src/pull/15471)
+- Version: TBD
+- PHP Manual Entry: TODO
 
 ## References
 
@@ -172,4 +170,6 @@ Thank you for all of those that contributed to the discussions back then. I hope
 
 ## Rejected Features
 
-Keep this updated with features that were discussed on the mail lists.
+### Autoloading constants
+
+Autoloading of other types such as constants and stream wrappers will come in a later RFC.
