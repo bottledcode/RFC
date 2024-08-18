@@ -70,7 +70,9 @@ For codebases that want to take advantage of function autoloading, it may be des
 
 ==== spl_autoload ====
 
-The ''%%spl_autoload%%'' function will not be updated. For backwards compatibility, there will be no changes to class autoloading and there will not be a default function autoloader.
+''%%spl_autoload%%'''s second argument will be updated to accept ''%%int|string|null%%'' as the second parameter so that it can use the new callback signature. If the second parameter is an int, and it is not ''%%SPL_AUTOLOAD_CLASS%%'', an ''%%Error%%'' is thrown: 'Default autoloader can only load classes.'
+
+There will not be a default function autoloader.
 
 ==== spl_autoload_call ====
 

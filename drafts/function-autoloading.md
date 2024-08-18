@@ -82,9 +82,12 @@ it may be desirable to stick with FQNs for functions and/or employ caches and ot
 
 ### spl_autoload
 
-The `spl_autoload` function will not be updated.
-For backwards compatibility,
-there will be no changes to class autoloading and there will not be a default function autoloader.
+`spl_autoload`'s second argument will be updated to accept `int|string|null` as the second parameter so that it can use
+the new callback signature.
+If the second parameter is an int, and it is not `SPL_AUTOLOAD_CLASS`,
+an `Error` is thrown: 'Default autoloader can only load classes.'
+
+There will not be a default function autoloader.
 
 ### spl_autoload_call
 
@@ -103,12 +106,12 @@ spl_autoload_call('func', SPL_AUTOLOAD_FUNCTION | SPL_AUTOLOAD_CLASS); // Error:
 
 If the user wants to call multiple autoloaders, they can do so manually.
 
-
 ### function_exists
 
 The `function_exists` function will be updated to include a boolean option (`$autoload`) as the second parameter,
 which will default to `true`.
-If set to `true`, the function autoloader will be called if the function is not defined, otherwise, it will not be called.
+If set to `true`, the function autoloader will be called if the function is not defined, otherwise, it will not be
+called.
 
 ## Backward Incompatible Changes
 
@@ -158,7 +161,6 @@ the PHP manual entry for the feature - a link to the language
 specification section (if any)
 
 ## References
-
 
 - [autofunc](https://wiki.php.net/rfc/autofunc): This heavily influenced this RFC. (declined in 2011)
 - [function_autoloading](https://wiki.php.net/rfc/function_autoloading): This RFC was declined in 2011.
