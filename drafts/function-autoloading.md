@@ -152,7 +152,7 @@ Potentially, constants and stream wrappers can be added in a similar fashion.
 
 ## Patches and Tests
 
-Not yet.
+Review the implementation [on GitHub #15471](https://github.com/php/php-src/pull/15471)
 
 ## Implementation
 
