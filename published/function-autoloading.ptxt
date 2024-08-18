@@ -123,13 +123,13 @@ Potentially, constants and stream wrappers can be added in a similar fashion.
 ===== Proposed Voting Choices =====
 
 
-<!-- markdownlint-disable MD037 -->
+
 
 <doodle title="Implement Function Autoloading v4, as described" auth="withinboredom" voteType="single" closed="true" closeon="2022-01-01T00:00:00Z">
    * Yes
    * No
 </doodle>
-<!-- markdownlint-disable MD037 -->
+
 
 
 ===== Patches and Tests =====
