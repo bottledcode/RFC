@@ -74,6 +74,10 @@ For codebases that want to take advantage of function autoloading, it may be des
 
 There will not be a default function autoloader.
 
+==== spl_autoload_unregister ====
+
+''%%spl_autoload_unregister%%'' will be updated to accept the new constants as the second parameter to unregister an autoloader from either mode.
+
 ==== spl_autoload_call ====
 
 The ''%%spl_autoload_call%%'' function will be modified to accept a second parameter of one, (but not both) of the new constants, with the default value set to SPL_AUTOLOAD_CLASS. The name of the first parameter will be changed to ''%%$name%%'' to reflect that it can be a class or function name.

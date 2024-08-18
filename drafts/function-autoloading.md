@@ -90,6 +90,11 @@ an `Error` is thrown: 'Default autoloader can only load classes.'
 
 There will not be a default function autoloader.
 
+### spl_autoload_unregister
+
+`spl_autoload_unregister` will be updated to accept the new constants as the second parameter to unregister an
+autoloader from either mode.
+
 ### spl_autoload_call
 
 The `spl_autoload_call` function will be modified to accept a second parameter of one,
@@ -143,6 +148,7 @@ None at this time.
 Potentially, constants and stream wrappers can be added in a similar fashion.
 
 ## Proposed Voting Choices
+
 <!-- markdownlint-disable MD037 -->
 <doodle title="Implement Function Autoloading v4, as described" auth="withinboredom" voteType="single" closed="true" closeon="2022-01-01T00:00:00Z">
    * Yes
