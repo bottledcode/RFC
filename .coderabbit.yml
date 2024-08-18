@@ -3,7 +3,7 @@ tone_instructions: ''
 early_access: false
 enable_free_tier: true
 reviews:
-  profile: chill
+  profile: assertive
   request_changes_workflow: false
   high_level_summary: true
   high_level_summary_placeholder: '@coderabbitai summary'
@@ -18,7 +18,7 @@ reviews:
   path_instructions: [
     {
       "path": "drafts/*.md",
-      "instructions": "These are PHP RFC's to change the PHP language. Be constructive but critical in how it may change the language"
+      "instructions": "These are PHP RFC's to change the PHP language. Do not just consider the grammar of the text, but consider how it might change the language. For example, if a new feature is being added, consider how it might be used, and propose better ideas if you have them."
     }
   ]
   abort_on_close: true

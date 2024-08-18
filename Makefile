@@ -5,7 +5,7 @@ all: $(PUBLISHED) .git/hooks/pre-commit
 
 drafts/template.md: template.ptxt
 	@echo "Creating draft from template"
-	src/convert-to-md.sh template.txt drafts/template.md
+	src/convert-to-md.sh template.ptxt drafts/template.md
 
 published/%.ptxt: drafts/%.md
 	@echo "Converting $< to $@"
