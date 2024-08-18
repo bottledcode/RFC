@@ -39,7 +39,8 @@ However, if a function
 2. is not defined,
 3. and an autoloader is registered with the SPL_AUTOLOAD_FUNCTION type
 
-then the autoloader will be called with the function name as the first parameter (with the initial slash removed) and
+then the autoloader will be called with the function name,
+with its original case as the first parameter (with the initial slash removed) and
 SPL_AUTOLOAD_FUNCTION as the second parameter.
 
 However, if a function
@@ -48,7 +49,7 @@ However, if a function
 2. is not defined locally
 3. and an autoloader is registered with the SPL_AUTOLOAD_FUNCTION type
 
-then the autoloader will be called with the current namespace prepended to the function name.
+then the autoloader will be called, with its original case, with the current namespace prepended to the function name.
 If the autoloader chooses to look up the "basename" of the function, it may do so.
 If the function is still undefined in the local scope,
 then it will fall back to the global scope—unless the local scope is the global scope.
