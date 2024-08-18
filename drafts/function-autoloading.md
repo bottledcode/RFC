@@ -112,7 +112,10 @@ If set to `true`, the function autoloader will be called if the function is not 
 
 ## Backward Incompatible Changes
 
-There are no backward incompatible changes.
+### Mismatched arguments
+
+If an autoloader was registered that can accept more than one argument,
+it may fail or perform unexpected behavior when it receives a second argument of `SPL_AUTOLOAD_CLASS`.
 
 ## Proposed PHP Version(s)
 

@@ -92,7 +92,9 @@ The ''%%function_exists%%'' function will be updated to include a boolean option
 
 ===== Backward Incompatible Changes =====
 
-There are no backward incompatible changes.
+==== Mismatched arguments ====
+
+If an autoloader was registered that can accept more than one argument, it may fail or perform unexpected behavior when it receives a second argument of ''%%SPL_AUTOLOAD_CLASS%%''.
 
 ===== Proposed PHP Version(s) =====
 
@@ -118,13 +120,13 @@ Potentially, constants and stream wrappers can be added in a similar fashion.
 
 ===== Proposed Voting Choices =====
 
-<HTML>
+
 <doodle title="Implement Function Autoloading v4, as described" auth="withinboredom" voteType="single" closed="true" closeon="2022-01-01T00:00:00Z">
    * Yes
    * No
 </doodle>
 
-</HTML>
+
 ===== Patches and Tests =====
 
 Not yet.
