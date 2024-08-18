@@ -58,7 +58,7 @@ This provides an opportunity
 for an autoloader to check for the existence of a function in the local scope and define it,
 as well as defer to the global scope if it is not defined.
 
-Example "`PSR-4-style`" (except the last part of the namespace is the file it is in) function autoloader: 
+Example "`PSR-4-style`" (except the last part of the namespace is the file it is in) function autoloader:
 
 ```php
 <?php
@@ -78,7 +78,7 @@ spl_autoload_register(function ($function, $type) {
 Performance-wise, this should have minimal impact on existing codebases as there is no default function autoloader.
 
 For codebases that want to take advantage of function autoloading,
-it may be desirable to stick with FQNs for functions and/or employ caches and other techniques where possible. 
+it may be desirable to stick with FQNs for functions and/or employ caches and other techniques where possible.
 
 ### spl_autoload
 
