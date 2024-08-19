@@ -125,7 +125,9 @@ Two new constants will be added to the SPL extension: SPL_AUTOLOAD_CLASS, SPL_AU
 
 ===== Open Issues =====
 
-None at this time.
+==== Enums instead of constants ====
+
+Enums could be used instead of constants.
 
 ===== Future Scope =====
 
