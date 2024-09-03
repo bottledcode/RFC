@@ -11,8 +11,6 @@
 The topic of supporting function autoloading was brought up many times in the past, this RFC introduces a potential
 implementation which would be consistent with what we have for autoloading classes.
 
-By adding function autoload support, we can make it easier for new developers to use the language.
-
 By using autoloaders (such as composer),
 users can already get quickly up to speed when it comes to classes,
 but the language currently lacks a way to do the same for functions.
@@ -23,51 +21,23 @@ This isn’t ideal, and this RFC seeks to close the gap between functions and cl
 
 ## Proposal
 
-Before getting into the details,
-there are a few terms worth acknowledging so that the proposal can be easily discussed without getting confused:
-
-1. **Defined function**: A function that the engine has knowledge of, such as in a previously included/required file.
-2. **Undefined function**: A function that the engine does not have knowledge of.
-3. **Function autoloading**: The process of loading a function that is not defined.
-4. **Written function**: A function that exists in a file that the engine may or may not have knowledge of.
-5. **Local scope**: The current namespace
-6. **Global scope**: The global namespace (`\`)
-
-The suggested change would be pretty straightforward and backwards-compatible:
-
-1. Add two new constants to spl: SPL_AUTOLOAD_CLASS, SPL_AUTOLOAD_FUNCTION.
-2. Add a fourth optional parameter for spl_autoload_register, with a default value of SPL_AUTOLOAD_CLASS.
-3. The type for the missing token should also be passed to the $autoload_function callback as a second param. (e.g.,
-   SPL_AUTOLOAD_CLASS for classes, SPL_AUTOLOAD_FUNCTION for functions)
-4. Change the current class autoloading to only call the autoloaders which match with the SPL_AUTOLOAD_CLASS types.
-5. Add the function autoloading to only call the autoloaders which match with the SPL_AUTOLOAD_FUNCTION types.
+This RFC proposes to add two new constants to the SPL extension: `SPL_AUTOLOAD_CLASS`, `SPL_AUTOLOAD_FUNCTION`.
+These constants may be passed to `spl_autoload_register` as the fourth parameter
+to register an autoloader for classes or functions, respectively.
 
 There won’t be any changes to the current autoloading mechanism when it comes to classes.
-However, if a function
 
-1. is called in a fully qualified form (e.g., a `use` statement or `\` prefix is used),
-2. is not defined,
-3. and an autoloader is registered with the SPL_AUTOLOAD_FUNCTION type
+### Function Autoloading
 
-then the autoloader will be called with the function name,
-with its original case as the first parameter (with the initial slash removed) and
-SPL_AUTOLOAD_FUNCTION as the second parameter.
+The function autoloader will be called with the fully qualified undefined function name.
+This will allow the function autoloader to determine how to load or generate the function.
 
-However, if a function
-
-1. is called in an unqualified form (e.g., `strlen()`),
-2. is not defined locally
-3. and an autoloader is registered with the SPL_AUTOLOAD_FUNCTION type
-
-then the autoloader will be called, with its original case, with the current namespace prepended to the function name.
-If the autoloader chooses to look up the "basename" of the function, it may do so.
-If the function is still undefined in the local scope,
-then it will fall back to the global scope—unless the local scope is the global scope.
-The function autoloader will not be called again.
-
-This provides an opportunity
-for an autoloader to check for the existence of a function in the local scope and define it,
-as well as defer to the global scope if it is not defined.
+PHP allows programmers to call an unqualified function name.
+Traditionally, this means that PHP would first search in the current namespace for the function
+and then fall back to the global namespace if the function is not found.
+This behavior will be preserved.
+However, the function autoloader will be called **only once** for the current namespace;
+thus, the function autoloader will not be called again if the function is found in the global namespace.
 
 Example "`PSR-4-style`" (except the last part of the namespace is the file it is in) function autoloader:
 
@@ -86,19 +56,19 @@ spl_autoload_register(function ($function, $type) {
 }, false, false, SPL_AUTOLOAD_FUNCTION);
 ```
 
-Performance-wise, this should have minimal impact on existing codebases as there is no default function autoloader.
+### Performance Impact
 
-For codebases that want to take advantage of function autoloading,
-it may be desirable to stick with FQNs for functions and/or employ caches and other techniques where possible.
+Function autoloading doesn’t appear to have a significant impact on performance; however, the function autoloader itself
+(depending upon its implementation) may have a performance impact.
+
+To help mitigate any potential performance impact of function autoloading many unqualified functions,
+a function will only be searched for once per namespace.
 
 ### spl_autoload
 
-`spl_autoload`'s second argument will be updated to accept `int|string|null` as the second parameter so that it can use
-the new callback signature.
-If the second parameter is an int, and it is not `SPL_AUTOLOAD_CLASS`,
-an `Error` is thrown: 'Default autoloader can only load classes.'
-
-There will not be a default function autoloader.
+The `spl_autoload` function will not be modified.
+It may be used as a function autoloader if the programmer desires,
+though it will limit the programmer to a single function per file.
 
 ### spl_autoload_unregister
 
@@ -108,23 +78,23 @@ autoloader from either mode.
 ### spl_autoload_functions
 
 `spl_autoload_functions` will be updated to accept one of the new constants as the first parameter. Passing both (i.e.,
-`SPL_AUTOLOAD_CLASS | SPL_AUTOLOAD_FUNCTION`) will result in an error.
+`SPL_AUTOLOAD_CLASS | SPL_AUTOLOAD_FUNCTION`) will result in all registered functions.
 
 ### spl_autoload_call
 
-The `spl_autoload_call` function will be modified to accept a second parameter of one,
-(but not both) of the new constants,
-with the default value set to SPL_AUTOLOAD_CLASS.
+The `spl_autoload_call` function will be modified to accept a second parameter of one or both of the constants,
+with the default value set to `SPL_AUTOLOAD_CLASS`.
 The name of the first parameter will be changed to `$name` to reflect that it can be a class or function name.
+
+In the event that both constants are passed, it will attempt to autoload both types.
+This may be useful in the case where functions and invocable classes are used interchangeably.
 
 ```php
 spl_autoload_call('Some\func', SPL_AUTOLOAD_FUNCTION); // Calls the function autoloader
 spl_autoload_call('Some\func'); // Calls the class autoloader
 spl_autoload_call('Some\func', SPL_AUTOLOAD_CLASS); // Calls the class autoloader
-spl_autoload_call('func', SPL_AUTOLOAD_FUNCTION | SPL_AUTOLOAD_CLASS); // Error: Cannot autoload multiple types
+spl_autoload_call('func', SPL_AUTOLOAD_FUNCTION | SPL_AUTOLOAD_CLASS); // Calls both autoloaders with the name 'func'
 ```
-
-If the user wants to call multiple autoloaders, they can do so manually.
 
 ### function_exists
 
@@ -135,10 +105,7 @@ called.
 
 ## Backward Incompatible Changes
 
-### Mismatched arguments
-
-If an autoloader was registered that can accept more than one argument,
-it may fail or perform unexpected behavior when it receives a second argument of `SPL_AUTOLOAD_CLASS`.
+There shouldn’t be any backward incompatible changes.
 
 ## Proposed PHP Version(s)
 
@@ -156,15 +123,17 @@ Two new constants will be added to the SPL extension: SPL_AUTOLOAD_CLASS, SPL_AU
 
 ## Open Issues
 
-### Enums instead of constants
-
-Enums could be used instead of constants.
+None.
 
 ## Future Scope
 
 Potentially, constants and stream wrappers can be added in a similar fashion.
 
 ## Proposed Voting Choices
+
+As per the voting RFC a yes/no vote with a 2/3 majority is needed for this proposal to be accepted.
+
+Voting started on 2023-XX-XX and will end on 2023-XX-XX.
 
 <!-- markdownlint-disable MD037 -->
 <doodle title="Implement Function Autoloading v4, as described" auth="withinboredom" voteType="single" closed="true" closeon="2022-01-01T00:00:00Z">
