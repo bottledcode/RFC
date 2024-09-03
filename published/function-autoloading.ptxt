@@ -63,7 +63,7 @@ The ''%%spl_autoload%%'' function will not be modified. It may be used as a func
 
 The ''%%spl_autoload_call%%'' function will be modified to accept a second parameter of one or both of the constants, with the default value set to ''%%SPL_AUTOLOAD_CLASS%%''. The name of the first parameter will be changed to ''%%$name%%'' to reflect that it can be a class or function name.
 
-In the event that both constants are passed, it will attempt to autoload both types. This may be useful in the case where functions and invocable classes are used interchangeably.
+In the event that both constants are passed, it will attempt to autoload both types.
 
 <code php>
 spl_autoload_call('Some\func', SPL_AUTOLOAD_FUNCTION); // Calls the function autoloader

@@ -88,7 +88,6 @@ with the default value set to `SPL_AUTOLOAD_CLASS`.
 The name of the first parameter will be changed to `$name` to reflect that it can be a class or function name.
 
 In the event that both constants are passed, it will attempt to autoload both types.
-This may be useful in the case where functions and invocable classes are used interchangeably.
 
 ```php
 spl_autoload_call('Some\func', SPL_AUTOLOAD_FUNCTION); // Calls the function autoloader
