@@ -11,10 +11,10 @@
 The topic of supporting function autoloading was brought up many times in the past, this RFC introduces a potential
 implementation which would be consistent with what we have for autoloading classes.
 
-By using autoloaders (such as composer),
-users can already get quickly up to speed when it comes to classes,
+By using autoloaders,
+programmers can already get quickly up to speed when it comes to classes,
 but the language currently lacks a way to do the same for functions.
-This requires users to manually (and carefully) include files that must be included on every request.
+This requires programmers to manually (and carefully) include files that must be included on every request.
 For 'functional' codebases,
 they lose the ability to use autoloaders, or they must write their functions as static methods on classes.
 This isn’t ideal, and this RFC seeks to close the gap between functions and classes.
@@ -24,6 +24,7 @@ This isn’t ideal, and this RFC seeks to close the gap between functions and cl
 This RFC proposes to add two new constants to the SPL extension: `SPL_AUTOLOAD_CLASS`, `SPL_AUTOLOAD_FUNCTION`.
 These constants may be passed to `spl_autoload_register` as the fourth parameter
 to register an autoloader for classes or functions, respectively.
+If not specified, the default value `SPL_AUTOLOAD_CLASS` will be used to retain backward compatibility.
 
 There won’t be any changes to the current autoloading mechanism when it comes to classes.
 
