@@ -45,14 +45,12 @@ Example "`PSR-4-style`" (except the last part of the namespace is the file it is
 ```php
 <?php
 
-spl_autoload_register(function ($function, $type) {
-    if ($type === SPL_AUTOLOAD_FUNCTION) {
-        $function_path = dirname(str_replace('\\', DIRECTORY_SEPARATOR, $function));
-        $file = __DIR__ . '/functions/' . $function_path . '.php';
+spl_autoload_register(function ($function) {
+    $function_path = dirname(str_replace('\\', DIRECTORY_SEPARATOR, $function));
+    $file = __DIR__ . '/functions/' . $function_path . '.php';
 
-        if (file_exists($file)) {
-            require_once $file;
-        }
+    if (file_exists($file)) {
+        require_once $file;
     }
 }, false, false, SPL_AUTOLOAD_FUNCTION);
 ```
