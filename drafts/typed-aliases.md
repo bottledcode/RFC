@@ -256,6 +256,14 @@ For simple aliases, using ReflectionClass will return the original class name, j
 
 Developers may access the `aliasOf` property to ascertain the alias’s underlying type.
 
+## Why Special Classes?
+
+After looking at the current type system in PHP,
+it became clear that if we were to implement aliases in the existing type system,
+it would be overly complex and challenging to maintain.
+Using classes, however, is much simpler, easier to maintain, and debug.
+It is also easier to reason about in the symbol tables as well since classes are synonymous with types in PHP.
+
 ## Backward Incompatible Changes
 
 A project using `\type_alias` as a global function will need to update their code.
