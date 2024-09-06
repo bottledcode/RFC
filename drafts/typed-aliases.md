@@ -8,7 +8,7 @@
 
 ## Introduction
 
-There are many times where you may need to write out a union/intersection type in PHP. This can be cumbersome and
+There are many times where you may need to write out a union/intersection type many times in PHP. This can be cumbersome and
 error-prone.
 This RFC proposes a new "typed alias" syntax that will allow for the creation of type aliases that is per-file,
 but may be used in other files as well.
@@ -23,7 +23,7 @@ class Second {}
 class Minute {}
 class Hour {}
 
-use Time as alias Second|Minute|Hour;
+use Second|Minute|Hour as alias Time;
 
 // alternatively
 
@@ -54,7 +54,7 @@ There are several classes of aliases:
 
 ### Creating Aliases
 
-There are two ways to create an alias and neither trigger autoloading of their inner types until the types are used.
+There are three ways to create an alias and neither trigger autoloading of their inner types until the types are used.
 This is to allow "type libraries" or "type files"
 to be self-sufficient from their implementation and be defined without loading entire libraries.
 
@@ -64,15 +64,15 @@ A use statement on the top-level of the file will create an alias for the file
 and may be reused throughout the project once defined.
 
 It is created by using the `use` keyword,
-followed by the desired alias name, `as alias`, and then the union/intersection or single type.
+followed by the type to alias, `as alias`, and then desired alias name.
 
 ```php
 namespace MyLibrary;
 
-use Time as alias Second|Minute|Hour;
-use Number as alias int|float;
-use Stringy as alias string|Stringable;
-use FancyString as alias string;
+use Second|Minute|Hour as alias Time;
+use int|float as alias Number;
+use string|Stringable as alias Stringy;
+use string as alias FancyString;
 ```
 
 #### Using the type_alias function
@@ -90,6 +90,22 @@ type_alias('\MyLibrary\Number', 'int|float');
 type_alias('\MyLibrary\Stringy', 'string|Stringable');
 type_alias('\MyLibrary\FancyString', 'string');
 ```
+
+#### File-local aliases
+
+The use statement will be extended to allow using aliases in the current file,
+just as you can today, only with intersections, unions, and aliases.
+
+```php
+namespace MyLibrary;
+
+use Second|Minute|Hour as Time;
+use int|float as Number;
+use string|Stringable as Stringy;
+use string as FancyString;
+```
+
+Local aliases lack the "as alias" syntax and only use the "as" keyword.
 
 ### Using Aliases
 
@@ -132,8 +148,8 @@ Aliases may also be aliases of other aliases:
 ```php
 namespace MyLibrary;
 
-use Time as alias Second|Minute|Hour;
-use Duration as alias Time;
+use Second|Minute|Hour as alias Time;
+use Time as alias Duration;
 ```
 
 #### Argument Lists and Return Types
