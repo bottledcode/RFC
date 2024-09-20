@@ -8,7 +8,7 @@
 
 ===== Introduction =====
 
-There are many times where you may need to write out a union/intersection type many times in PHP. This can be cumbersome and error-prone. This RFC proposes a new "typed alias" syntax that will allow for the creation of type aliases that is per-file, but may be used in other files as well.
+There are many times when you may need to write out a union/intersection type many times in PHP. This can be cumbersome and error-prone. This RFC proposes a new "typed alias" syntax that will allow for the creation of type aliases that may be used project-wide.
 
 Here is a brief example:
 
@@ -20,11 +20,7 @@ class Second {}
 class Minute {}
 class Hour {}
 
-use Second|Minute|Hour as alias Time;
-
-// alternatively
-
-\type_alias('Time', 'Second|Minute|Hour');
+alias Time: Second|Minute|Hour;
 
 // in another file
 
@@ -33,7 +29,7 @@ use MyLibrary\Time;
 
 ===== Proposal =====
 
-This RFC proposes to implement aliases as a "special" class type (similar to final, abstract, etc.) under the hood of the same name as its alias. Thus, the alias ''%%Time%%'' would be a class named ''%%Time%%'' in the namespace ''%%MyLibrary%%'', in the example above. This prevents collisions with other classes and defined "types" in the same namespace.
+This RFC proposes to implement type aliases as a "special" class type (similar to final, abstract, etc.) under the hood of the same name as its alias. Thus, the alias ''%%Time%%'', in the above example, would be a class named ''%%Time%%'' in the namespace ''%%MyLibrary%%''. This prevents collisions with other classes and defined "types" in the same namespace.
 
 When the engine sees a class with this special type, it expands the alias into its actual type, and continues with type checking.
 
@@ -47,53 +43,15 @@ There are several classes of aliases:
 
 ==== Creating Aliases ====
 
-There are three ways to create an alias and neither trigger autoloading of their inner types until the types are used. This is to allow "type libraries" or "type files" to be self-sufficient from their implementation and be defined without loading entire libraries.
-
-=== Using the use statement ===
-
-A use statement on the top-level of the file will create an alias for the file and may be reused throughout the project once defined.
-
-It is created by using the ''%%use%%'' keyword, followed by the type to alias, ''%%as alias%%'', and then desired alias name.
+An alias is defined by the work ''%%alias%%'', followed by the alias name, a colon, and then the type to alias:
 
 <code php>
-namespace MyLibrary;
-
-use Second|Minute|Hour as alias Time;
-use int|float as alias Number;
-use string|Stringable as alias Stringy;
-use string as alias FancyString;
+alias Time: Second|Minute|Hour;
+alias Number: int|float;
+alias Stringy: string|Stringable;
+alias Matrix: array;
+alias Client: HttpClient&JsonClient;
 </code>
-
-=== Using the type_alias function ===
-
-A new function called ''%%type_alias%%'' will be introduced in the global scope. This function will take two arguments:
-
-  - The alias name as a string
-  - The union/intersection or single type as a string.
-
-The use case for this function is for dynamically creating aliases during runtime, similar to ''%%class_alias%%''.
-
-<code php>
-type_alias('\MyLibrary\Time', 'Second|Minute|Hour');
-type_alias('\MyLibrary\Number', 'int|float');
-type_alias('\MyLibrary\Stringy', 'string|Stringable');
-type_alias('\MyLibrary\FancyString', 'string');
-</code>
-
-=== File-local aliases ===
-
-The use statement will be extended to allow using aliases in the current file, just as you can today, only with intersections, unions, and aliases.
-
-<code php>
-namespace MyLibrary;
-
-use Second|Minute|Hour as Time;
-use int|float as Number;
-use string|Stringable as Stringy;
-use string as FancyString;
-</code>
-
-Local aliases lack the "as alias" syntax and only use the "as" keyword.
 
 ==== Using Aliases ====
 
@@ -105,18 +63,24 @@ namespace MyProject;
 use MyLibrary\Time;
 use MyLibrary\Number;
 use MyLibrary\Stringy;
-use MyLibrary\FancyString;
 
 function sleepFor(Time $time) {}
 
 function retryTimes(Number $times) {}
 
-function logMessage(Stringy|FancyString|string $message) {} // Not a fatal error
+function logMessage(Stringy|string $message) {} // Not a fatal error
 </code>
 
 === Intersections and Unions ===
 
-A type alias may be a union or intersection of other types (including other aliases), event if they contain the same types in their alias. It will not be a fatal error as it currently is when a type is a union or intersection with itself. This allows libraries to declare type aliases that are specific to their own library and be reused in other projects that may also have similar aliases. For example, a library may define a ''%%Stringy%%'' alias that is a union of ''%%string%%'' and ''%%Stringable%%'' and another library may define a ''%%ConstantString%%'' alias that is a union of ''%%Stringable%%'' and ''%%MyString%%''. A project using both libraries would be able to use ''%%Stringy%%'' and ''%%ConstantString%%'' in its own type alias or function type.
+A type alias may be a union or intersection of other types (including other aliases), even if they contain the same types in their alias. It will not be a fatal error as it currently is when a type is a union or intersection with itself. This allows libraries to declare type aliases that are specific to their own library and be reused in other projects that may also have similar aliases. For example, a library may define a ''%%Stringy%%'' alias that is a union of ''%%string%%'' and ''%%Stringable%%'' and another library may define a ''%%ConstantString%%'' alias that is also a union of ''%%Stringable%%'' and ''%%string%%''. A project using both libraries would be able to use ''%%Stringy%%'' and ''%%ConstantString%%'' in its own type alias or function type.
+
+<code php>
+alias Stringy: string|Stringable;
+alias ConstantString: string|Stringable;
+
+function logMessage(Stringy|ConstantString $message) {} // Not a fatal error
+</code>
 
 === Nesting ===
 
@@ -125,13 +89,13 @@ Aliases may also be aliases of other aliases:
 <code php>
 namespace MyLibrary;
 
-use Second|Minute|Hour as alias Time;
-use Time as alias Duration;
+alas Time: Second|Minute|Hour;
+alias Duration: Time|int;
 </code>
 
 === Argument Lists and Return Types ===
 
-The primary usage for aliases is in argument lists and return types:
+The primary usage for aliases is in argument lists, instanceof and return types:
 
 <code php>
 use MyLibrary\Time;
@@ -139,7 +103,9 @@ use MyLibrary\Time;
 function sleep(Time $time): Time {}
 
 class Alarm {
-    public function __construct(Time $time) {}
+    public function __construct(Time $time) {
+        assert($time instanceof Time);
+    }
     
     public function getTime(): Time {}
 }
@@ -152,7 +118,7 @@ For simple aliases of other classes, ''%%type_alias%%'' behaves exactly like ''%
 <code php>
 class A {}
 
-type_alias('B', 'A');
+alias B: A;
 
 class C extends B {}
 </code>
@@ -163,33 +129,35 @@ However, trying to extend or implement a complex or primitive alias will result 
 class A {}
 class B {}
 
-type_alias('C', 'A|B');
+alias C: A|B;
+alias D: int;
 
-class D extends C {} // Fatal error: cannot extend a complex type alias
+class E extends C {} // Fatal error: cannot extend a complex type alias
+class F implements D {} // Fatal error: cannot implement a primitive type alias 
 </code>
 
 === Calling new on Aliases ===
 
-Aliases may be used in the ''%%new%%'' keyword, but only if the alias is a simple alias of a class:
+Aliases may be used in the ''%%new%%'' keyword, but only if the alias is a simple alias of a class, as is currently possible:
 
 <code php>
 class A {}
 
-type_alias('B', 'A');
+alias B: A; // same as calling class_alias('A', 'B');
 
 new B();
 </code>
 
 === Static calls on Aliases ===
 
-Aliases may be used in static calls, but only if the alias is a simple alias of a class:
+Aliases may be used in static calls, but only if the alias is a simple alias of a class, as is currently possible:
 
 <code php>
 class A {
     public static function test() {}
 }
 
-type_alias('B', 'A');
+alias B: A; // same as calling class_alias('A', 'B');
 
 B::test();
 </code>
@@ -223,25 +191,25 @@ abstract class PrimitiveTypeAlias {
 }
 
 abstract class ComplexTypeAlias {
-    public const ReflectionUnionType|ReflectionIntersectionType $aliasOf;
+    public const ReflectionType $aliasOf;
 }
 </code>
 
 For simple aliases, using ReflectionClass will return the original class name, just like with ''%%class_alias%%''.
 
-Developers may access the ''%%aliasOf%%'' property to ascertain the alias’s underlying type.
+Developers may access the ''%%aliasOf%%'' property to find out the alias’s underlying type.
 
 ===== Why Special Classes? =====
 
-After looking at the current type system in PHP, it became clear that if we were to implement aliases in the existing type system, it would be overly complex and challenging to maintain. Using classes, however, is much simpler, easier to maintain, and debug. It is also easier to reason about in the symbol tables as well since classes are synonymous with types in PHP.
+After looking at the current type system in PHP, it became clear that if we were to implement aliases in the existing type system, it would be overly complex and challenging to maintain. Using classes, however, is much simpler, easier to maintain, and debug. It is also easier to reason about in the symbol tables as well since classes are synonymous with types in lay-terms.
 
 ===== Backward Incompatible Changes =====
 
-A project using ''%%\type_alias%%'' as a global function will need to update their code.
+There should be no backward incompatible changes.
 
 ===== Proposed PHP Version(s) =====
 
-List the proposed PHP versions that the feature will be included in. Use relative versions such as "next PHP 8.x" or "next PHP 8.x.y".
+8.5 or later.
 
 ===== RFC Impact =====
 
