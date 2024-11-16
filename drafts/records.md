@@ -632,6 +632,10 @@ A `record` cannot share its name with an existing `record`,
 
 Records will be autoloaded in the same way as classes.
 
+### New Functions
+
+- `record_exists` will return `true` if a record exists and `false` otherwise. It has the same signature as `class_exists`.
+
 ## Backward Incompatible Changes
 
 To avoid conflicts with existing code,
