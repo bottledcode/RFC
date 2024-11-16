@@ -289,6 +289,46 @@ record User(string $name, string $emailAddress) {
 }
 ```
 
+### Implementing Interfaces
+
+A **record** can implement interfaces, but it cannot extend other records or classes, but may use traits:
+
+```php
+interface Vehicle {}
+
+interface Car extends Vehicle {
+  public function drive(): void;
+}
+
+interface SpaceShip extends Vehicle {
+  public function launch(): void;
+}
+
+record FancyCar(string $model) implements Car {
+  public function drive(): void {
+    echo "Driving a Fancy Car {$this->model}";
+  }
+}
+
+record SpaceCar(string $model) implements Car, SpaceShip {
+  public function drive(): void {
+    echo "Driving a Space Car {$this->model}";
+  }
+  
+  public function launch(): void {
+    echo "Launching a Space Car {$this->model}";
+  }
+}
+
+record Submarine(string $model) implements Vehicle {
+  use Submersible;
+}
+
+record TowTruct(string $model, private Car $towing) implements Car {
+  use Towable;
+}
+```
+
 ### Mental models and how it works
 
 From the perspective of a developer, declaring a record declares an object with the same name.
