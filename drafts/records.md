@@ -551,10 +551,12 @@ The `finalizeRecord()` method is used to make a record immutable and look up its
 returning an instance that represents the finalized record.
 
 Calling `finalizeRecord()` on a record that has already been finalized will return the same instance.
+Attempting to finalize a regular object will throw a `ReflectionException`.
 
 #### isRecord()
 
-The `isRecord()` method is used to determine if an object is a record. It returns `true` if the object is a record.
+The `isRecord()` method is used to determine if an object is a record.
+It returns `true` if the object is a finalized record.
 
 #### getInlineConstructor()
 
@@ -586,7 +588,6 @@ For example, `var_dump()` will output `object` instead of `record`.
 
 The `isMutable()` method is used
 to determine if a record has been made mutable via `makeMutable()` or otherwise not yet finalized.
-
 
 #### Custom deserialization example
 

@@ -489,11 +489,11 @@ Attempting to use ''%%ReflectionClass%%'' or ''%%ReflectionFunction%%'' on a rec
 
 The ''%%finalizeRecord()%%'' method is used to make a record immutable and look up its value in the internal cache, returning an instance that represents the finalized record.
 
-Calling ''%%finalizeRecord()%%'' on a record that has already been finalized will return the same instance.
+Calling ''%%finalizeRecord()%%'' on a record that has already been finalized will return the same instance. Attempting to finalize a regular object will throw a ''%%ReflectionException%%''.
 
 === isRecord() ===
 
-The ''%%isRecord()%%'' method is used to determine if an object is a record. It returns ''%%true%%'' if the object is a record.
+The ''%%isRecord()%%'' method is used to determine if an object is a record. It returns ''%%true%%'' if the object is a finalized record.
 
 === getInlineConstructor() ===
 
