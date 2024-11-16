@@ -2,7 +2,7 @@
 
 - Version: 0.9
 - Date: 2024-07-19
-- Author: Robert Landers, landers.robert@gmail.com
+- Author: Robert Landers, landers.robert@gmail.com, rob@bottled.codes
 - Status: Draft (or Under Discussion or Accepted or Declined)
 - First Published at: <http://wiki.php.net/rfc/records>
 
