@@ -1,0 +1,274 @@
+# PHP RFC: Short and Inner Classes
+
+* Version: 0.1
+* Date: 2025-02-08
+* Author: Rob Landers, rob@bottled.codes
+* Status: Draft (or Under Discussion or Accepted or Declined)
+* First Published at: <http://wiki.php.net/rfc/short-class>
+
+## Introduction
+
+This RFC proposes a new short syntax for class definitions in PHP and the ability to embed these classes within other
+classes.
+
+## Proposal
+
+Data transfer objects (DTOs) are a common pattern in PHP applications and are usually simple data structures that hold
+data and have no behavior.
+With this RFC,
+we propose a simple and concise syntax for defining these classes, looking almost like named anonymous classes, as well as
+the ability to embed them within other classes.
+
+### Short Class Syntax
+
+The proposed syntax for a short class definition is as follows: a keyword `class`,
+followed by the class name, then a list of public properties enclosed in parentheses.
+Optionally, a list of traits, interfaces, and a parent class may be defined.
+
+```php
+class Point(int $x, int $y);
+```
+
+This is equivalent to the following full class definition:
+
+```php
+class Point {
+    public function __construct(public int $x, public int $y) {}
+}
+```
+
+Any properties defined within the parenthesis are defined as a public property of the class.
+
+#### Default Values
+
+Default values may be provided for properties:
+
+```php
+class Point(int $x = 0, int $y = 0);
+```
+
+#### Inheritance and Behavior
+
+With class short syntax, no behavior may be defined, yet it can still utilize traits, interfaces, and other classes.
+
+```php
+class Point(int $x, int $y) extends BasePoint implements JsonSerializable use PointTrait, Evolvable;
+```
+
+Note that the original constructor from any parent class is overridden and not called by the short syntax.
+
+#### Empty Classes
+
+Short classes may also be empty:
+
+```php
+class Point() extends BasePoint use PointTrait;
+```
+
+#### Attributes
+
+Attributes may also be used with short classes:
+
+```php
+class Password(#[SensitiveParameter] string $password);
+```
+
+### Inner Classes
+
+Inner classes are classes that are defined within another class.
+
+```php
+class Foo {
+    class Bar(public string $message);
+    
+    private class Baz {
+        public function __construct(public string $message) {}
+    }
+}
+
+$foo = new Foo::Bar('Hello, world!');
+echo $foo->message;
+// outputs: Hello, world!
+$baz = new Foo::Baz('Hello, world!');
+// Fatal error: Uncaught Error: Cannot access private class Foo::Baz
+```
+
+Inner classes have scope similar to properties, which applies to parameters and returns types as well.
+
+#### Modifiers
+
+Properties support modifiers such as `public`, `protected`, and `private` as well as `static`, `final` and `readonly`.
+When using these as modifiers on an inner class, there are some intuitive rules:
+
+- `public`, `private`, and `protected` apply to the visibility of the class.
+- `static`, `final`, and `readonly` apply to the class itself.
+
+Thus, an inner class with the modifier `private readonly` is only accessible within the class
+and any instances are readonly.
+
+#### Visibility
+
+A `private` or `protected` inner class is only accessible within the class it is defined in
+(or its subclasses in the case of protected classes).
+This also applies to methods and return types.
+
+```php
+class Foo {
+    private class Bar(public string $message);
+    
+    // Fatal error: Uncaught Error: Cannot return private class Foo::Bar
+    public function getMessage(): Bar {
+        return new Bar('Hello, world!');
+    }
+}
+```
+
+#### Accessing Inner Classes
+
+From outside the class, public inner classes may be accessed using the `::` operator:
+
+```php
+new Foo::Bar('Hello, world!');
+```
+
+This may also be used from inside the class or in subclasses at the developer’s discretion. Alternatively, inner classes
+may be accessed using `self::` or `static::` from inside the class, or just using the name itself:
+
+```php
+
+private function getBar(): Foo::Bar {
+    $a = new Bar('Hello, world!');
+    $b = new self::Bar('Hello, world!');
+    $c = new static::Bar('Hello, world!');
+    $d = new Foo::Bar('Hello, world!');
+}
+
+```
+
+Note that inner classes effectively "shadow" outer classes of the same name:
+
+```php
+readonly class Vect(int $x, int $y);
+
+class Foo {
+    class Vect(int $x, int $y, int $z);
+    
+    // Vect is Foo::Vect not \Vect
+    public function __construct(public Vect $vect) {}
+}
+```
+
+#### Names
+
+Inner classes may not have any name that conflicts with a constant or static method of the same name.
+
+```php
+class Foo {
+    const Bar = 'bar';
+    class Bar(public string $message);
+    
+    // Fatal error: Uncaught Error: Cannot redeclare Foo::Bar
+}
+
+class Foo {
+    static function Bar() {}
+    class Bar(public string $message);
+    
+    // Fatal error: Uncaught Error: Cannot redeclare Foo::Bar
+}
+```
+
+These rules are to prevent developer confusion because these instantiations all look similar,
+but without this rule, they would all work:
+
+```php
+new (Foo::Bar); // create a new class from the name stored in Foo::Bar
+new (Foo::Bar()); // create a new instance from the name returned by Foo::Bar()
+new Foo::Bar(); // create a new instance of the class Foo::Bar
+```
+
+## Backward Incompatible Changes
+
+What breaks, and what is the justification for it?
+
+## Proposed PHP Version(s)
+
+List the proposed PHP versions that the feature will be included in. Use
+relative versions such as "next PHP 8.x" or "next PHP 8.x.y".
+
+## RFC Impact
+
+### To SAPIs
+
+Describe the impact to CLI, Development web server, embedded PHP etc.
+
+### To Existing Extensions
+
+Will existing extensions be affected?
+
+### To Opcache
+
+It is necessary to develop RFC's with opcache in mind, since opcache is
+a core extension distributed with PHP.
+
+Please explain how you have verified your RFC's compatibility with
+opcache.
+
+### New Constants
+
+Describe any new constants so they can be accurately and comprehensively
+explained in the PHP documentation.
+
+### php.ini Defaults
+
+If there are any php.ini settings then list: \* hardcoded default values
+\* php.ini-development values \* php.ini-production values
+
+## Open Issues
+
+Make sure there are no open issues when the vote starts!
+
+## Unaffected PHP Functionality
+
+List existing areas/features of PHP that will not be changed by the RFC.
+
+This helps avoid any ambiguity, shows that you have thought deeply about
+the RFC's impact, and helps reduces mail list noise.
+
+## Future Scope
+
+This section details areas where the feature might be improved in
+future, but that are not currently proposed in this RFC.
+
+## Proposed Voting Choices
+
+Include these so readers know where you are heading and can discuss the
+proposed voting options.
+
+## Patches and Tests
+
+Links to any external patches and tests go here.
+
+If there is no patch, make it clear who will create a patch, or whether
+a volunteer to help with implementation is needed.
+
+Make it clear if the patch is intended to be the final patch, or is just
+a prototype.
+
+For changes affecting the core language, you should also provide a patch
+for the language specification.
+
+## Implementation
+
+After the project is implemented, this section should contain - the
+version(s) it was merged into - a link to the git commit(s) - a link to
+the PHP manual entry for the feature - a link to the language
+specification section (if any)
+
+## References
+
+Links to external references, discussions or RFCs
+
+## Rejected Features
+
+Keep this updated with features that were discussed on the mail lists.
