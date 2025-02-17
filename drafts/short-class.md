@@ -1,4 +1,4 @@
-# PHP RFC: Short and Inner Classes
+# PHP RFC: Inner Classes with Short Syntax
 
 * Version: 0.1
 * Date: 2025-02-08
@@ -8,7 +8,7 @@
 
 ## Introduction
 
-This RFC proposes a new short syntax for class definitions in PHP and the ability to embed these classes within other
+This RFC proposes a new short syntax for class/enum definitions in PHP and the ability to embed these classes within other
 classes.
 
 ## Proposal
@@ -73,6 +73,25 @@ Attributes may also be used with short classes:
 class Password(#[SensitiveParameter] string $password);
 ```
 
+### Short enums
+
+Enums are a common pattern in PHP applications and are usually simple data structures that hold a set of constants.
+This RFC includes a proposal for short enums:
+
+```php
+enum Color(Red, Green, Blue);
+```
+
+This is equivalent to the following full enum definition:
+
+```php
+enum Color {
+    case Red;
+    case Green;
+    case Blue;
+}
+```
+
 ### Inner Classes
 
 Inner classes are classes that are defined within another class.
@@ -80,6 +99,7 @@ Inner classes are classes that are defined within another class.
 ```php
 class Foo {
     class Bar(public string $message);
+    enum Baz(One, Two, Three);
     
     private class Baz {
         public function __construct(public string $message) {}
@@ -160,7 +180,7 @@ class Foo {
 
 #### Names
 
-Inner classes may not have any name that conflicts with a constant or static method of the same name.
+Inner classes may not have any name that conflicts with a constant or static property of the same name.
 
 ```php
 class Foo {
@@ -171,7 +191,7 @@ class Foo {
 }
 
 class Foo {
-    static function Bar() {}
+    static $Bar = 'bar';
     class Bar(public string $message);
     
     // Fatal error: Uncaught Error: Cannot redeclare Foo::Bar
@@ -179,17 +199,25 @@ class Foo {
 ```
 
 These rules are to prevent developer confusion because these instantiations all look similar,
-but without this rule, they would all work:
+however, the following all result in the same inner class being instantiated:
 
 ```php
-new (Foo::Bar); // create a new class from the name stored in Foo::Bar
-new (Foo::Bar()); // create a new instance from the name returned by Foo::Bar()
-new Foo::Bar(); // create a new instance of the class Foo::Bar
+new (Foo::Bar);
+new (Foo::$Bar);
+new Foo::Bar();
 ```
 
 ## Backward Incompatible Changes
 
-What breaks, and what is the justification for it?
+Creating a new instance from an existing static member is now allowed:
+
+```php
+class Foo {
+    public const Bar = 'bar';
+}
+
+new Foo::Bar(); // previously this is a syntax error, but now results in creating a new "bar" object.
+```
 
 ## Proposed PHP Version(s)
 
