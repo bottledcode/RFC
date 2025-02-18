@@ -8,7 +8,7 @@
 
 ===== Introduction =====
 
-This RFC proposes a new short syntax for class/enum definitions in PHP and the ability to embed these classes within other classes.
+This RFC proposes a new short syntax for class definitions in PHP and the ability to embed these classes within other classes.
 
 ===== Proposal =====
 
@@ -64,24 +64,6 @@ Attributes may also be used with short classes:
 
 <code php>
 class Password(#[SensitiveParameter] string $password);
-</code>
-
-==== Short enums ====
-
-Enums are a common pattern in PHP applications and are usually simple data structures that hold a set of constants. This RFC includes a proposal for short enums:
-
-<code php>
-enum Color(Red, Green, Blue);
-</code>
-
-This is equivalent to the following full enum definition:
-
-<code php>
-enum Color {
-    case Red;
-    case Green;
-    case Blue;
-}
 </code>
 
 ==== Inner Classes ====
