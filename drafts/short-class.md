@@ -9,21 +9,21 @@
 ## Introduction
 
 PHP has steadily evolved to enhance developer productivity and expressiveness,
-introducing new features such as typed properties, constructor property promotion, and first-class callable syntax.
+introducing features such as typed properties, constructor property promotion, and first-class callable syntax.
 However, defining simple data structures and organizing classes remains verbose.
 
 This RFC proposes two related enhancements to PHP:
 
-**Short class syntax**, which allows for defining simple or data-oriented classes in a single line:
+**Short class syntax**, allowing simple or data-oriented classes to be defined in a single line:
 
 ```php
 class Point(int $x, int $y);
 ```
 
-This syntax serves as a shorthand for defining classes with constructor property promotion,
+This syntax acts as a shorthand for defining classes with constructor property promotion,
 reducing boilerplate while maintaining clarity.
 
-**Inner classes**, which allows for the ability to define classes within other classes and control the use of inner classes through visibility:
+**Inner classes**, enabling the definition of classes within other classes with visibility control:
 
 ```php
 class Foo {
@@ -35,16 +35,16 @@ class Foo {
 
 ### Short Class Syntax
 
-The proposed syntax for a short class definition is as follows: a keyword `class`,
-followed by the class name, then a list of properties enclosed in parentheses.
-Optionally, a list of traits, interfaces, and a parent class may be defined.
+The proposed syntax for defining a short class consists of the class keyword,
+followed by the class name, and a list of properties in parentheses.
+Optionally, traits, interfaces, and a parent class can be specified.
 
 ```php
 
-// a simple class with two public properties: x and y
+// a simple class with two public properties
 class Point(int $x, int $y);
 
-// a more complex readonly class with a parent class, interface, and traits.
+// A readonly class with a parent class, interface, and traits
 readonly class Vector(int $x, int $y) extends BaseVector implements JsonSerializable use PointTrait, Evolvable;
 ```
 
@@ -62,8 +62,8 @@ readonly public class Vector extends BaseVector implements JsonSerializable {
 }
 ```
 
-Any properties defined within the parenthesis are defined as a property on the class
-and are automatically `public` unless specified otherwise.
+Properties inside parentheses are automatically declared as class properties
+and default to public unless explicitly specified:
 
 ```php
 // declare $shapes as a private property
@@ -72,7 +72,7 @@ class Geometry(private $shapes) use GeometryTrait;
 
 #### Default Values
 
-Default values may be provided for properties but only for properties with type hints:
+Properties with type hints may have default values:
 
 ```php
 class Point(int $x = 0, int $y = 0);
@@ -80,17 +80,17 @@ class Point(int $x = 0, int $y = 0);
 
 #### Inheritance and Behavior
 
-With class short syntax, no behavior may be defined, yet it can still utilize traits, interfaces, and other classes.
+Short classes can extend other classes, implement interfaces,
+and use traits, but they cannot define additional methods.
+The parent class constructor is overridden and not automatically called.
 
 ```php
 class Point(int $x, int $y) extends BasePoint implements JsonSerializable use PointTrait, Evolvable;
 ```
 
-Note that the original constructor from any parent class is overridden and not called by the short syntax.
-
 #### Empty Classes
 
-Short classes may also be empty:
+Short classes may be empty:
 
 ```php
 class Point() extends BasePoint use PointTrait;
@@ -98,7 +98,7 @@ class Point() extends BasePoint use PointTrait;
 
 #### Attributes
 
-Attributes may also be used with short classes:
+Attributes can be used with short classes:
 
 ```php
 #[MyAttribute]
@@ -107,7 +107,7 @@ class Password(#[SensitiveParameter] string $password);
 
 #### Modifiers
 
-Short classes support modifiers such as `readonly`, `final` and `abstract`:
+Short classes support readonly, final, and abstract:
 
 ```php
 readonly class User(int $id, string $name);
@@ -119,11 +119,11 @@ abstract class Shape(float $area);
 
 #### How it works
 
-Short classes are implemented as pure syntax sugar and are compiled as full class definitions.
+Short classes are purely syntactic sugar and compile into standard class definitions.
 
 ### Inner Classes
 
-Inner classes are classes that are defined within another class.
+Inner classes allow defining classes within other classes, following visibility rules:
 
 ```php
 class Outer {
@@ -141,7 +141,50 @@ $baz = new Outer::PrivateInner('Hello, world!');
 // Fatal error: Uncaught Error: Cannot access private inner class Outer::PrivateInner 
 ```
 
-Inner classes have inheritance similar to static properties, allowing you to define rich class hierarchies:
+#### Modifiers
+
+Inner classes support modifiers such as `public`, `protected`, `private`, `final` and `readonly`.
+When using these as modifiers on an inner class, there are some intuitive rules:
+
+- `public`, `private`, and `protected` apply to the visibility of the inner class.
+- `final`, and `readonly` apply to the class itself.
+- `static` is not allowed as a modifier since PHP does not support static classes.
+- `abstract` is not allowed as an inner class cannot be parent classes.
+
+#### Visibility Rules
+
+Private and protected inner classes are only instantiatable within their outer class
+(or subclasses for protected) and may not be used as type hints outside of their outer class.
+
+```php
+class Outer {
+    private class PrivateInner(string $message);
+    
+    public function getInner(): self::PrivateInner {
+        return new self::PrivateInner('Hello, world!');
+    }
+}
+
+// using a private inner class from outside the outer class, as a type hint is forbidden
+function doSomething(Outer::PrivateInner $inner) {
+    echo $inner->message;
+}
+
+// this is ok:
+$inner = new Outer()->getInner();
+
+// but this is not:
+doSomething($inner);
+// Fatal error: Private inner class Outer::Inner cannot be used in the global scope
+```
+
+Just like with other languages that support inner classes,
+it is better to return an interface or a base class from a method instead of exposing a private/protected class.
+
+#### Inheritance
+
+Inner classes have inheritance similar to static properties;
+this allows you to redefine an inner class in a subclass, allowing rich hierarchies.
 
 ```php
 readonly class Point(int $x, int $y);
@@ -194,61 +237,8 @@ var_dump($t instanceof Geometry); // true
 var_dump($t instanceof Triangle::FromCoordinates); // true
 ```
 
-#### Modifiers
-
-Inner classes support modifiers such as `public`, `protected`, `private`, `final` and `readonly`.
-When using these as modifiers on an inner class, there are some intuitive rules:
-
-- `public`, `private`, and `protected` apply to the visibility of the inner class.
-- `final`, and `readonly` apply to the class itself.
-
-Thus, an inner class with the modifier `private readonly` is only accessible within the class
-and any instances are readonly.
-
-`static` is not allowed as a modifier on an inner class because there is currently no such thing as a `static` class in PHP.
-
-#### Visibility
-
-A `private` or `protected` inner class type is only accessible within the class it is defined in
-(or its subclasses in the case of protected classes).
-This is similar to C#, so you may return a private type from a public method,
-but not use it as a type hint from outside the outer class:
-
-```php
-class Outer {
-    private class PrivateInner(string $message);
-    
-    public function getInner(): self::PrivateInner {
-        return new self::PrivateInner('Hello, world!');
-    }
-}
-
-// using a private inner class from outside the outer class, as a type hint is forbidden
-function doSomething(Outer::PrivateInner $inner) {
-    echo $inner->message;
-}
-
-// this is ok:
-$inner = new Outer()->getInner();
-
-// but this is not:
-doSomething($inner);
-// Fatal error: Private inner class Outer::Inner cannot be used in the global scope
-```
-
-Just like with other languages that support inner classes,
-it is better to return an interface or a base class from a method instead of exposing a private/protected class.
-
-You may also not instantiate a private/protected class from outside the outer class’s scope:
-
-```php
-$x = new Outer::PrivateInner();
-// Fatal error: Uncaught Error: Cannot access private inner class Outer::Inner
-```
-
-#### Inheritance
-
-Classes may not inherit from inner classes. Inner classes may inherit from other classes, including the outer class.
+However, no classes may not inherit from inner classes,
+but inner classes may inherit from other classes, including the outer class.
 
 #### Names
 
