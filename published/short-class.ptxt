@@ -1,6 +1,6 @@
-====== PHP RFC: Inner Classes ======
+====== PHP RFC: Nested Classes ======
 
-  * Version: 0.4
+  * Version: 0.5
   * Date: 2025-02-08
   * Author: Rob Landers, <rob@bottled.codes>
   * Status: Under Discussion (Accepted or Declined)
@@ -8,17 +8,11 @@
 
 ===== Introduction =====
 
-This RFC proposes a significant enhancement to the language: **Inner Classes**. Inner classes enable the definition of classes within other classes, introducing a new level of encapsulation and organization within PHP applications.
-
-**Inner Classes** allows for the ability to define classes within other classes and control the use of inner classes through visibility. Many languages allow the encapsulation of behavior through inner classes (sometimes called **nested classes**), such as Java, C#, and many others.
-
-PHP developers currently rely heavily on annotations (e.g., @internal) or naming conventions to indicate encapsulation of Data Transfer Objects (DTOs) and related internal classes. These approaches offer limited enforcement, causing potential misuse or unintended coupling.
-
-This RFC introduces Inner Classes to clearly communicate and enforce boundaries around encapsulated classes, facilitating well-known design patterns (e.g., Builder, DTO, serialization patterns) with native language support. This reduces boilerplate, enhances clarity, and ensures internal types remain truly internal.
+This RFC proposes a significant enhancement to the PHP language: **Nested Classes**. Nested classes allow the definition of one class within another, enabling tighter encapsulation and better organization of related logic. This feature naturally supports common design patterns such as Builders, DTOs, and serialization helpers, reducing boilerplate, minimizing namespace clutter, and clarifying code structure. Unlike some other languages, PHP nested classes do not implicitly capture the outer class instance, preserving explicit data flow and minimizing hidden coupling.
 
 ===== Proposal =====
 
-Inner classes allow defining classes within other classes, following standard visibility rules. This allows developers to declare a class as ''%%private%%'' or ''%%protected%%'' and restrict its usage to the outer class. They are accessed via a new operator: ''%%:>%%'' which is a mixture of ''%%->%%'' and ''%%::%%''.
+Nested classes allow defining classes (including enums) within other classes, interfaces, or enums, following standard visibility rules. This allows developers to declare a class as ''%%private%%'' or ''%%protected%%'' and restrict its usage to an outer class.
 
 <code php>
 class Outer {
@@ -31,20 +25,153 @@ class Outer {
     }
 }
 
-$foo = new Outer:>Inner('Hello, world!');
+$foo = new Outer\Inner('Hello, world!');
 echo $foo->message;
 // outputs: Hello, world!
-$baz = new Outer:>PrivateInner('Hello, world!');
-// Fatal error: Class 'Outer:>PrivateInner' is private
+$baz = new Outer\PrivateInner('Hello, world!');
+// Uncaught TypeError: Cannot instantiate class Outer\PrivateInner from the global scope
 </code>
 
-Inner classes are just regular class definitions with a couple additional features. That means, except where otherwise noted, "how would inner classes work in situation X?" can be answered with "the same as any other class/object."
+Nested classes are just regular class definitions with visibility. That means, except where otherwise noted, "how would nested classes work in situation X?" can be answered with "the same as any other class/object."
+
+==== Use-cases and examples ====
+
+Nested classes are a powerful tool for organizing code and encapsulating functionality. Some use-cases include:
+
+  * **Builder patterns**: Nested classes can be used to create complex objects step-by-step, encapsulating the construction logic within the outer class.
+  * **Data Transfer Objects (DTOs)**: Nested classes can be used to define data structures that are closely related to the outer class, improving code organization and readability.
+  * **Serialization helpers**: Nested classes can be used to define custom serialization logic for the outer class, encapsulating the serialization details within the outer class.
+  * **Encapsulation**: Nested classes can be used to encapsulate functionality that is only relevant to the outer class, reducing the visibility of the nested class and improving code organization.
+  * **Namespace management**: Nested classes can help reduce the number of top-level classes in a namespace, improving code organization and reducing clutter.
+
+=== Example: Serialization DTOs ===
+
+<code php>
+class Message {
+    public function __construct(private string $message, private string $from, private string $to) {}
+    
+    public function Serialize(): string {
+        return serialize(new SerializedMessage($this));
+    }
+    
+    private class SerializedMessage {
+        public string $message;
+        public string $from;
+        public string $to;
+        
+        public function __construct(Message $message) {
+            $this->message = $message->message;
+            $this->from = $message->from;
+            $this->to = $message->to;
+        }
+    }
+}
+</code>
+
+=== Example: Builder Pattern ===
+
+<code php>
+class Person {
+    public class Builder {
+        use AgeCalculator;
+    
+        private string $name;
+        private DateTimeInterface $age;
+        
+        public function setName(string $name): self {
+            $this->name = $name;
+            return $this;
+        }
+        
+        public function setBirthday(DateTimeInterface $age): self {
+            $this->age = $age;
+            return $this;
+        }
+        
+        public function build(): Person {
+            return new Person($this->name, $this->calculateAge($this->age));
+        }
+    }
+    
+    public function __construct(private string $name, private int $age) {}
+}
+</code>
+
+=== Example: DTOs ===
+
+<code php>
+enum Status {
+    case Active;
+    case Inactive;
+
+    private enum Processing {
+        case Pending;
+        case Completed;
+    }
+
+    public class Message {
+
+        private Processing $processing = Processing::Pending;
+
+        public function __construct(private Status $status) {}
+
+        public function getMessage(): string {
+            return match ([$this->status, $this->processing]) {
+                [Status::Active, Processing::Pending] => "Active and Pending",
+                [Status::Active, Processing::Completed] => "Active and Completed",
+                [Status::Inactive, Processing::Pending] => "Inactive and Pending",
+                [Status::Inactive, Processing::Completed] => throw new LogicException('should not happen'),
+            };
+        }
+    }
+
+    public function createMessage(): Message {
+        return new Message($this);
+    }
+}
+</code>
+
+=== Example: class shared via interface ===
+
+<code php>
+interface Reader {
+    public class Buffer {
+        public string $bytes;
+    }
+    
+    public function read(): void;
+    public function getBuffer(): Buffer;
+}
+
+// in another file:
+use Reader\Buffer;
+
+class FileReader implements Reader {
+    protected Buffer $buffer;
+
+    public function __construct() {
+        $this->buffer = new Buffer();
+    }
+
+    public function read(): void {
+        $this->buffer->bytes = random_bytes(5);
+    }
+
+    public function getBuffer(): Buffer {
+        return $this->buffer;
+    }
+}
+</code>
+
+==== Why PHP needs nested classes ====
+
+PHP developers today often simulate nested classes through long namespace chains or anonymous classes embedded in methods. While these patterns work, they come with visibility challenges, verbosity, and a lack of cohesion between related types. Nested classes solve these problems natively, offering better encapsulation without requiring new runtime behavior or complex inheritance tricks.
 
 ==== Declaration Syntax ====
 
-Declaring an inner class is just like declaring any other class. You can define ''%%readonly%%'', ''%%final%%'', and ''%%abstract%%'' inner classes -- or combinations, for example. However, when defining an inner class, you may also define it as ''%%private%%'', ''%%protected%%'', or ''%%public%%''.
+Declaring a nested class uses the same syntax as declaring a top-level class. You can define ''%%readonly%%'', ''%%final%%'', and ''%%abstract%%'' nested classes. In addition, nested classes may be declared with visibility modifiers (''%%private%%'', ''%%protected%%'', ''%%public%%''), which determine where the nested class can be referenced or instantiated.
 
-If an inner class does not explicitly declare visibility (private, protected, or public), it is implicitly considered public. This matches PHP’s existing class behavior for methods and properties.
+If a nested class does not explicitly declare visibility (private, protected, or public), it is implicitly considered public. This matches PHP’s existing class behavior for methods and properties.
 
 <code php>
 class Outer {
@@ -55,220 +182,19 @@ class Outer {
 }
 </code>
 
-If an inner class is not defined as ''%%private%%'', ''%%protected%%'', or ''%%public%%'', it is assumed to be ''%%public%%''.
+Outer classes remain "public" (accessible and visible to all), and visibility modifiers cannot be applied to them.
 
-==== Syntax rationale ====
+==== Visibility ====
 
-The ''%%:>%%'' syntax was selected after evaluating alternatives:
+Visibility refers to whether a method, class, or property is accessible from outside its defining context. A nested class may be declared as ''%%private%%'', ''%%protected%%'', or ''%%public%%''. A private class will //only// be visible within the lexical outer class, while a protected class is visible both inside its lexical scope and any child classes. A public class has no restrictions and will be visible from anywhere in the codebase.
 
-  * Using ''%%::%%'' was cumbersome and visually ambiguous due to existing static resolution syntax.
-  * Using ''%%\%%'' or ''%%\\%%'' was rejected due to potential conflicts with namespaces and escaping, causing confusion.
+=== Properties and Methods ===
 
-''%%:>%%'' communicates "inner membership," visually linking the inner class to the outer class.
-
-==== Binding ====
-
-Inner classes are explicitly bound to their outer classes and are intentionally not inherited through subclassing, traits, or interfaces. This prevents ambiguity or complexity arising from inheriting tightly bound encapsulated logic.
-
-<code php>
-class Outer {
-    class OuterInner {}
-}
-
-interface Foo {
-    class FooInner {}
-}
-
-trait Bar {
-    class BarInner {}
-}
-
-class All extends Outer implements Foo {
-    use Bar;
-    
-    public function does_not_work() {
-        new self:>OuterInner(); // Fatal error: Class 'All:>OuterInner' not found
-        new self:>FooInner(); // Fatal error: Class 'All:>FooInner' not found
-        new self:>BarInner(); // Fatal error: Class 'All:>BarInner' not found
-        
-        new parent:>OuterInner(); // This does work because it resolves to Outer:>OuterInner
-    }
-}
-</code>
-
-=== static resolution ===
-
-The ''%%static%%'' keyword is **not** supported to resolve inner classes. Attempting to do so results in an error, depending on where it is used:
-
-<code php>
-class Outer {
-    class Inner {}
-    
-    // Fatal error: Cannot use the static modifier on a parameter
-    public function foo(static:>Inner $bar) {}
-    
-    // Parse error: syntax error, unexpected token ":>", expecting ";" or "{"
-    public function bar(): static:>Inner {}
-    
-    // Fatal error: Cannot use "static" as class name, as it is reserved 
-    class Baz extends static:>Inner {}
-    
-    public function foobar() {
-        return new static:>Inner(); // Fatal error: Cannot use the static modifier on an inner class
-    }
-}
-</code>
-
-This is to prevent casual LSP violations of inheritance and to maintain the strong binding of inner classes.
-
-=== parent resolution ===
-
-The ''%%parent%%'' keyword is supported to resolve inner classes. Which parent it resolves to depends on the context:
-
-<code php>
-class Foo {
-    class Bar {}
-}
-
-class Baz extends Foo {
-    // parent:>Bar resolves to Foo:>Bar
-    class Bar extends parent:>Bar {
-        // inside the class body, parent refers to Foo:>Bar
-        public function doSomething(): parent {} 
-    }
-}
-</code>
-
-''%%parent%%'' explicitly resolves to the parent class of the current class body it is written in and helps with writing more concise code.
-
-=== self resolution ===
-
-The ''%%self%%'' keyword is supported to resolve inner classes. Which ''%%self%%'' it resolves to depends on the context:
-
-<code php>
-class Outer {
-  class Middle {
-    class Other {}
-  
-    // extends Outer:>Middle:>Other
-    class Inner extends self:>Other {
-        public function foo(): self {} // returns Outer:>Middle:>Inner
-    }
-  }
-}
-</code>
-
-''%%self%%'' explicitly resolves to the current class body it is written in, just like with ''%%parent%%''. On ''%%inner%%'' classes.
-
-When using self inside a class body to refer to an inner class, if the inner class is not found in the current class, it will fail with an error.
-
-<code php>
-class OuterParent {
-    class Inner {}
-    class Other {}
-}
-
-class MiddleChild extends OuterParent {
-    // Fatal Error: cannot find class MiddleChild:>InnerParent
-    class Inner extends self:>InnerParent {}
-}
-
-class OuterChild extends OuterParent {
-    class Inner {}
-    public function foo() {
-        $inner = new self:>Inner(); // resolves to OuterChild:>Inner
-        $inner = new parent:>Inner(); // resolves to OuterParent:>Inner
-        $inner = new self:>Other(); // Fatal Error: cannot find class OuterChild:>Other
-        $inner = new parent:>Other(); // resolves to OuterParent:>Other
-    }
-}
-</code>
-
-=== Dynamic resolution ===
-
-Just as with ''%%::%%'', developers may use variables to resolve inner classes, or refer to them by name directly via a string:
-
-<code php>
-// Using variables to dynamically instantiate inner classes:
-$outer = "Outer";
-$inner = "Inner";
-$instance = new $outer:>$inner();
-
-// Instantiating inner class dynamically via a fully qualified class string:
-$dynamicClassName = "Outer:>Inner";
-$instance = new $dynamicClassName();
-</code>
-
-This provides flexibility and backwards compatibility for dynamic code that may not expect an inner class.
-
-==== Visibility from inner classes ====
-
-Inner classes have access to their outer class’s private and protected methods, properties, and inner classes. However, they do not have access to their siblings’ private and protected methods, properties, and inner classes.
-
-<code php>
-class User {
-    public private(set) string $name;
-    public private(set) string $email;
-    
-    private function __construct(self:>Builder $builder) {
-        $this->name = $builder->name;
-        $this->email = $builder->email;
-    }
-    
-    public readonly final class Builder {
-        public function __construct(public private(set) string|null $name = null, public private(set) string|null $email = null) {}
-        
-        public function withEmail(string $email): self {
-            return new self($this->name, $email);
-        }
-        
-        public function withName(string $name): self {
-            return new self($name, $this->email);
-        }
-        
-        public function build(): User {
-            return new User($this);
-        }
-    }
-}
-
-$user = new User:>Builder()->withName('Rob')->withEmail('rob@bottled.codes')->build();
-</code>
-
-This enables usages such as builder patterns and other helper classes to succinctly encapsulate behavior.
-
-==== Visibility from outside the outer class ====
-
-Inner classes are not visible outside their outer class unless they are public. Protected classes may be used and accessed from within their child classes.
-
-<code php>
-class Outer {
-    private class Other {}
-    protected class Inner {
-        public function Foo() {
-            $bar = new Outer:>Inner(); // allowed
-            $bar = new Outer:>Other(); // allowed
-        }
-    }
-}
-
-class SubOuter extends Outer {
-    public function Foo() {
-        $bar = new parent:>Inner(); // allowed to access protected inner class
-        $bar = new parent:>Other(); // Cannot access private inner class 'Outer:>Other'
-    }
-}
-</code>
-
-Attempting to instantiate a private or protected inner class outside its outer class will result in a fatal error:
-
-<code php>
-new Outer:>Inner(); // Cannot access protected inner class 'Outer:>Inner'
-</code>
+All outer class’s properties and methods are visible from nested classes, as from the perspective of the nested class, it is a member of the outer class. However, unlike some languages with nested classes, an outer class does not have direct access to a nested class’s private or protected members.
 
 === Method return type and argument declarations ===
 
-Inner classes may only be used as a return type or argument declarations for methods and functions that have the same visibility or lesser. Thus returning a ''%%protected%%'' class type from a ''%%public%%'' method is not allowed, but is allowed from a ''%%protected%%'' or ''%%private%%'' method.
+Nested classes may only be used as a return type or argument declarations for methods and functions that have the same visibility or less. Thus returning a ''%%protected%%'' type from a ''%%public%%'' method is not allowed, but is allowed from a ''%%protected%%'' or ''%%private%%'' method.
 
 ^Inner Class Visibility^Method Visibility^Allowed^
 |''%%public%%''        |''%%public%%''   |Yes    |
@@ -281,49 +207,61 @@ Inner classes may only be used as a return type or argument declarations for met
 |''%%private%%''       |''%%protected%%''|No     |
 |''%%private%%''       |''%%private%%''  |Yes    |
 
-Methods and functions outside the outer class are considered public from the perspective of an inner class. Attempting to declare a return of a non-visible type will result in a ''%%TypeError%%'':
+Attempting to declare a return of a non-visible type will result in a ''%%TypeError%%'':
 
 <code php>
 class Outer {
     private class Inner {}
     
-    public function getInner(): self:>Inner {
-        return new self:>Inner();
+    public function getInner(): Inner {
+        return new Inner();
     }
 }
 
-// Fatal error: Uncaught TypeError: Public method getInner cannot return private class Outer:>Inner
+// Fatal error: Uncaught TypeError: Public method getInner cannot return private class Outer\Inner
 new Outer()->getInner();
+</code>
+
+This does not prevent the programmer from returning a hidden type, only from declaring it. The programmer may choose to use an interface or public type instead:
+
+<code php>
+interface FooBar {}
+
+class Outer {
+    private class Inner implements FooBar {}
+    
+    public function getInner(): FooBar {
+        return new Inner();
+    }
+}
 </code>
 
 === Properties ===
 
-The visibility of a type declaration on a property must also not increase the visibility of an inner class. Thus, a public property cannot declare a private type.
-
-This gives a great deal of control to developers, preventing accidental misuse of inner classes. However, this **does not** preclude developers from returning a private/protected inner class, only from using them as a type declaration. The developer can use an interface or abstract class type declaration, or use a broader type such as ''%%object%%'', ''%%mixed%%'', or nothing at all:
+The visibility of a type declaration on a property must also not increase the visibility of a nested class. Thus, a public property cannot declare a private type.
 
 <code php>
 class Outer {
     private class Inner implements FooBar {}
     
     public function getInner(): FooBar {
-        return new self:>Inner(); // not an error
+        return new Inner(); // not an error
     }
 }
 </code>
 
 ==== Accessing outer classes ====
 
-Inner classes do not implicitly have access to an outer class instance. This design choice avoids implicit coupling between classes and keeps inner classes simpler, facilitating potential future extensions (such as adding an explicit outer keyword) without backward compatibility issues.
+Nested classes do not implicitly have access to an outer class instance. This design choice avoids implicit coupling between classes and keeps nested classes simpler, facilitating potential future extensions (such as adding an explicit outer keyword) without backward compatibility issues.
 
-Passing an outer instance explicitly remains an available option for accessing protected/private methods or properties. Thus inner classes may access outer class private/protected methods and properties if given an instance.
+However, a programmer may pass an instance of an outer class (or another nested class) to a nested class. If a class has access to the outer class, it may use the outer class’s private, protected, and public properties and methods.
 
 <code php>
 class Message {
     public function __construct(private string $message, private string $from, private string $to) {}
     
     public function Serialize(): string {
-        return new Message:>SerializedMessage($this)->message;
+        return new SerializedMessage($this)->message;
     }
     
     private class SerializedMessage {
@@ -336,59 +274,87 @@ class Message {
 }
 </code>
 
-==== Reflection ====
+==== Resolution ====
 
-Several new methods are added to ''%%ReflectionClass%%'' to help support inspection of inner classes:
+From a resolution perspective, outer classes behave as a pseudo-namespace. Using a short name of a nested class will resolve to the nested class. To disambiguate between different classes with the same name in the namespace and the nested class, the programmer can use fully qualified names.
 
 <code php>
-$reflection = new ReflectionClass('\a\namespace\Outer:>Inner');
+class Inner {}
 
-$reflection->isInnerClass(); // true
-$reflection->isPublic() || $reflection->isProtected() || $reflection->isPrivate(); // true
-$reflection->getName(); // \a\namespace\Outer:>Inner
-$reflection->getShortName(); // Outer:>Inner
+abstract class Outer {
+    class Inner {}
+    public function foo(Inner $i); // resolves to Outer\Inner
+    public function bar(\Inner $i); // resolves to global Inner
+}
 </code>
 
-For non-inner classes, ''%%ReflectionClass::isInnerClass()%%'' returns false.
+This applies to deeply nested classes as well:
+
+<code php>
+class Outer {
+    class Middle {
+        class Inner {}
+    }
+    public function foo(Middle\Inner $i); // resolves to Outer\Middle\Inner
+}
+</code>
+
+This can lead to accidentally shadowing a class in the same namespace, thus requiring the use of ''%%use%%'' statements or fully qualified names to disambiguate.
+
+==== Reflection ====
+
+Several new methods are added to ''%%ReflectionClass%%'' to help support inspection of nested classes:
+
+<code php>
+$reflection = new ReflectionClass('\a\namespace\Outer\Inner');
+
+$reflection->isNestedClass(); // true
+$reflection->isPublic() || $reflection->isProtected() || $reflection->isPrivate(); // true
+$reflection->getName(); // \a\namespace\Outer\Inner
+$reflection->getShortName(); // Inner
+</code>
+
+For non-nested classes, ''%%ReflectionClass::isNestedClass()%%'' returns ''%%false%%''.
+
+A future addition to ''%%ReflectionClass::getNestedClasses()%%'' may allow enumeration of nested class declarations.
 
 ==== Autoloading ====
 
-Inner classes are never autoloaded, only their outermost class is autoloaded. If the outermost class does not exist, then their inner classes do not exist.
+Since nested classes are referenced using standard -separated names, the engine treats them like any other class name during resolution. If the outer class has not yet been loaded, PHP will attempt to autoload the nested class name, which may result in fallback behavior depending on the autoloader. Implementers are encouraged to structure autoloaders to load the outer class when a nested class is referenced.
 
 ==== Usage ====
 
-Inner classes may be defined in the body of any class-like structure, including but not limited to:
+Nested classes may be defined in the body of any class-like structure, except traits:
 
   * in a class body
   * in an anonymous class body
   * in an enum body
-  * in a trait body
-  * in an interface body
+  * in an interface body (public nested classes only)
 
-Note: While traits and interfaces may define inner classes, classes using these traits or implementing these interfaces do not inherit their inner classes. Inner classes remain strictly scoped and bound to their defining context only.
+Traits are not allowed to contain nested classes and are left to a future RFC. Traits are excluded from this RFC because nested class resolution via use statements introduces ambiguities about scope and visibility. These concerns are deferred to a future RFC.
 
 ==== Outer class effects ====
 
-Inner classes are fully independent of their outer class’s declaration modifiers. Outer class modifiers such as abstract, final, or readonly do not implicitly cascade down or affect the inner classes defined within them.
+Nested classes are fully independent of their outer class’s declaration modifiers. Outer class modifiers such as abstract, final, or readonly do not implicitly cascade down or affect the nested classes defined within them.
 
 Specifically:
 
-  * An abstract outer class can define concrete (non-abstract) inner classes. Inner classes remain instantiable, independent of the outer class’s abstractness.
-  * A final outer class does not force its inner classes to be final. Inner classes within a final class can be extended internally, providing flexibility within encapsulation boundaries.
-  * A readonly outer class can define mutable inner classes. This supports internal flexibility, allowing the outer class to maintain immutability in its external API while managing state changes internally via inner classes.
+  * An abstract outer class can define concrete (non-abstract) nested classes. Nested classes remain instantiable, independent of the outer class’s abstractness.
+  * A final outer class does not force its nested classes to be final. Nested classes within a final class can be extended internally, providing flexibility within encapsulation boundaries.
+  * A readonly outer class can define mutable nested classes. This supports internal flexibility, allowing the outer class to maintain immutability in its external API while managing state changes internally via nested classes.
 
 Examples:
 
 <code php>
 abstract class Service {
-    // Valid: Inner class is not abstract, despite the outer class being abstract.
+    // Valid: Nested class is not abstract, despite the outer class being abstract.
     public class Implementation {
         public function run(): void {}
     }
 }
 
-// Allowed; abstract outer class does not force inner classes to be abstract.
-new Service:>Implementation();
+// Allowed; abstract outer class does not force nested classes to be abstract.
+new Service\Implementation();
 </code>
 
 <code php>
@@ -399,8 +365,8 @@ readonly class ImmutableCollection {
         $this->items = $items;
     }
 
-    public function getMutableBuilder(): self:>Builder {
-        return new self:>Builder($this->items);
+    public function getMutableBuilder(): Builder {
+        return new Builder($this->items);
     }
 
     public class Builder {
@@ -422,13 +388,17 @@ readonly class ImmutableCollection {
 }
 </code>
 
-In this example, even though ImmutableBuilder is a mutable inner class within a readonly outer class, the outer class maintains its immutability externally, while inner classes help internally with state management or transitional operations.
+In this example, even though ''%%Builder%%'' is a mutable nested class within a readonly outer class, the outer class maintains its immutability externally, while nested classes help internally with state management or transitional operations.
 
-==== Abstract inner classes ====
+=== Interfaces ===
 
-It is worth exploring what an ''%%abstract%%'' inner class means and how it works. Abstract inner classes are allowed to be the parent of any class that can see them. For example, a private abstract class may only be inherited by subclasses in the same outer class. A protected abstract class may be inherited by an inner class in a subclass of the outer class or an inner class in the same outer class. However, this is not required by subclasses of the outer class.
+Nested classes (including enums) may be defined in an interface body; however, they must be public classes. This is because an interface always defines public methods and properties, so this is to maintain consistency.
 
-Abstract inner classes may not be instantiated, just as abstract outer classes may not be instantiated.
+==== Abstract nested classes ====
+
+It is worth exploring what an ''%%abstract%%'' nested class means and how it works. Abstract nested classes are allowed to be the parent of any class that can see them. For example, a private abstract class may only be inherited by subclasses in the same outer class. A protected abstract class may be inherited by a nested class in a subclass of the outer class or a nested class in the same outer class. However, this is not required by subclasses of the outer class.
+
+Abstract nested classes may not be instantiated, just as abstract outer classes may not be instantiated.
 
 <code php>
 class OuterParent {
@@ -440,15 +410,17 @@ class Middle extends OuterParent {}
 
 // Last demonstrates extending the abstract inner class explicitly.
 class Last extends OuterParent {
-    private abstract class InnerExtended extends OuterParent:>InnerBase {}
+    private abstract class InnerExtended extends OuterParent\InnerBase {}
 }
 </code>
 
 ===== Backward Incompatible Changes =====
 
   * This RFC introduces new syntax and behavior to PHP, which does not conflict with existing syntax.
-  * Some error messages will be updated to reflect inner classes, and tests that depend on these error messages are likely to fail.
+  * Some error messages will be updated to reflect nested classes, and tests that depend on these error messages are likely to fail.
   * Tooling using AST or tokenization may need to be updated to support the new syntax.
+
+Note: Applying visibility modifiers to class declarations is new syntax, but only valid in nested contexts. Top-level classes will continue to behave as before, and this change introduces no ambiguity in existing code.
 
 ===== Proposed PHP Version(s) =====
 
@@ -462,7 +434,7 @@ None.
 
 ==== To Existing Extensions ====
 
-Extensions accepting class names may need to be updated to support ''%%:>%%'' in class names. None were discovered during testing, but it is possible there are unbundled extensions that may be affected.
+None were discovered during testing, but it is possible there are unbundled extensions that may be affected.
 
 ==== To Opcache ====
 
@@ -482,10 +454,10 @@ There should be no change to any existing PHP syntax.
 
 ===== Future Scope =====
 
-  * Inner enums
   * Inner interfaces
   * Inner traits
-  * ''%%Outer%%'' keyword for easily accessing outer classes
+
+This RFC focuses on class and enum nesting. Interfaces and traits are excluded for now due to their unique visibility and resolution semantics, but may be considered in follow-up RFCs.
 
 ===== Proposed Voting Choices =====
 
@@ -497,8 +469,6 @@ As this is a significant change to the language, a 2/3 majority is required.
 To be completed.
 
 ===== Implementation =====
-
-After the project is implemented, this section should contain - the version(s) it was merged into - a link to the git commit(s) - a link to the PHP manual entry for the feature - a link to the language specification section (if any)
 
 ===== References =====
 
