@@ -1,0 +1,825 @@
+====== Namespace-Scoped Visibility for Methods and Properties ======
+
+  * Version: 1.2
+  * Date: 2025-11-10
+  * Author: Rob Landers
+  * Status: Under Discussion
+  * Implementation: https://github.com/php/php-src/pull/20421
+  * First Published at: http://wiki.php.net/rfc/namespace_visibility
+
+===== Introduction =====
+
+This RFC proposes adding namespace-scoped visibility to methods and properties in PHP, using the syntax ''%%private(namespace)%%''. This allows classes within the same namespace to access each other’s internal APIs without exposing them publicly to the entire codebase.
+
+===== Motivation =====
+
+==== The Problem ====
+
+PHP currently has three visibility levels:
+
+  * ''%%public%%'': Accessible everywhere
+  * ''%%protected%%'': Accessible within class hierarchy (inheritance-based)
+  * ''%%private%%'': Accessible only within the same class
+
+There’s no way to share code between classes in the namespace without making it public to the entire application.
+
+==== Real-World Example ====
+
+<code php>
+namespace App\Auth;
+
+class SessionManager {
+    public function validateSession(): bool {
+        return $this->checkExpiry() && $this->verifySignature();
+    }
+
+    // PROBLEM: Must be public to be called from SessionStore,
+    // but we don't want these exposed to the entire codebase
+    public function checkExpiry(): bool { /* ... */ }
+    public function verifySignature(): bool { /* ... */ }
+}
+
+class SessionStore {
+    public function refresh(SessionManager $session): void {
+        // Needs to call internal SessionManager methods
+        if (!$session->checkExpiry()) {
+            // ...
+        }
+    }
+}
+</code>
+
+=== Why this is dangerous ===
+
+In the example above, ''%%SessionManager%%'' exposes two public methods: ''%%checkExpiry()%%'' and ''%%verifySignature()%%''. To someone reading the class, they look like safe, standalone API calls.
+
+But they’re not. They’re partial checks of a single security invariant. Calling only one is incorrect:
+
+<code php>
+// Looks harmless... but it isn't
+if ($session->checkExpiry()) {
+    // Session may still be forged
+}
+</code>
+
+Teams have to rely on documentation and social convention to avoid this mistake. Code review can easily miss it. New developers won’t know the coupling. Static analysis can’t fully enforce it.
+
+This turns internal implementation details into **false public API surface**, which can:
+
+  * introduce subtle authentication bypasses,
+  * degrade performance (devs calling both checks unnecessarily),
+  * create broken invariants that only appear under load.
+
+''%%private(namespace)%%'' solves this cleanly: ''%%SessionStore%%'' can call internal APIs, other namespaces can’t. The correct usage becomes enforced, not implied.
+
+The workarounds are all problematic:
+
+  - **Make everything public**: Pollutes API, no encapsulation
+  - **Use protected + inheritance**: Forces artificial inheritance hierarchies
+  - **Put everything in one class**: Creates god objects
+  - **Use @internal docblock**: Not enforced, easily violated
+  - **Reflection**: Can bypass visibility, but requires awkward code and awkward reviews
+  - **debug_backtrace** (as used in Symfony): Check caller namespace manually, fragile, and a performance cost
+
+===== Proposal =====
+
+Add ''%%private(namespace)%%'' visibility for methods and properties. Members with this visibility are accessible to all code within the same namespace but not to code in other namespaces.
+
+==== Syntax ====
+
+<code php>
+namespace App\Auth;
+
+class SessionManager {
+    private(namespace) static string $internalState;
+
+    // Asymmetric visibility: publicly readable, namespace-writable
+    public private(namespace)(set) int $sessionCount = 0;
+
+    private(namespace) function checkExpiry(): bool {
+        return time() < $this->internalState;
+    }
+
+    private(namespace) static function validateToken(string $token): bool {
+        return hash_equals($token, self::$internalState);
+    }
+}
+
+class SessionStore {
+    public function refresh(SessionManager $session): void {
+        // OK - same namespace
+        $session->checkExpiry();
+
+        // OK - same namespace, can write to asymmetric property
+        $session->sessionCount++;
+    }
+}
+</code>
+
+<code php>
+namespace App\Controllers;
+
+use App\Auth\SessionManager;
+
+class LoginController {
+    public function login(): void {
+        $session = new SessionManager();
+        $session->checkExpiry();
+        // Fatal error: Uncaught Error: Call to private(namespace) method
+        // App\Auth\SessionManager::checkExpiry() from scope App\Controllers
+    }
+}
+</code>
+
+''%%private(namespace)%%'' restricts access to code whose lexical namespace exactly matches the member’s declaring namespace. Applies to methods and properties (including static). Enforced for direct calls, callables (at creation or invocation as specified), property reads/writes, and property hooks as ordinary method calls. Traits use the receiver class’s namespace.
+
+Inheritance behavior is similar to ''%%protected%%'': child classes inherit ''%%private(namespace)%%'' members and must maintain signature compatibility when redeclaring them. However, visibility enforcement is based on the declaring namespace rather than the class hierarchy. You can’t transition between ''%%protected%%'' and ''%%private(namespace)%%'' as they operate on different axes (inheritance vs namespace).
+
+==== Scoping Rules ====
+
+=== Rule 1: Exact namespace match required ===
+
+Sub-namespaces are considered different namespaces:
+
+<code php>
+namespace App\Auth;
+
+class Foo {
+  private(namespace) function helper() { /* */ }
+}
+
+namespace App\Auth\OAuth;
+new Foo()->helper();
+// Fatal error: Uncaught Error: Call to private(namespace) method
+// App\Auth\helper() from scope App\Auth\OAuth
+</code>
+
+=== Rule 2: Works with static and instance members ===
+
+<code php>
+private(namespace) function instanceMethod() {}
+private(namespace) static function staticMethod() {}
+private(namespace) string $instanceProperty;
+private(namespace) static string $staticProperty;
+</code>
+
+=== Rule 3: Asymmetric visibility for properties ===
+
+The write visibility mustn’t allow a broader set of callers than the read visibility. If it would, it’s a compile-time error.
+
+**Important:** ''%%protected%%'' and ''%%private(namespace)%%'' operate on different axes (inheritance vs namespace) and can’t be combined in asymmetric visibility. These combinations are compile-time errors:
+
+  * ''%%protected private(namespace)(set)%%'' - Error: protected operates on inheritance axis while private(namespace) on a namespace axis
+  * ''%%private(namespace) protected(set)%%'' - Error: same reason
+
+Valid asymmetric combinations include:
+
+  * ''%%public private(namespace)(set)%%'' - Publicly readable, namespace-writable
+  * ''%%private(namespace) private(set)%%'' - Namespace-readable, class-writable
+  * ''%%protected protected(set)%%'' - Inheritance-readable, inheritance-writable (already allowed)
+  * ''%%public protected(set)%%'' - Publicly readable, inheritance-writable (already allowed)
+
+Here’s an example of the error you’ll get when mixing axes:
+
+<code php>
+namespace App\Auth;
+
+class SessionManager {
+    // Error: Cannot mix inheritance and namespace axes
+    protected private(namespace)(set) int $sessionCount = 0;
+    // Fatal error: Property App\Auth\SessionManager::$sessionCount has incompatible visibility modifiers:
+    // protected and private(namespace) operate on different axes (inheritance vs namespace)
+    // and cannot be combined in asymmetric visibility
+}
+</code>
+
+=== Rule 4: Visibility checked at call-site ===
+
+The namespace of the **calling code** is compared to the namespace where the member was declared.
+
+=== Rule 5: Works from top-level code ===
+
+Namespace-private members can be accessed from top-level code within the same namespace:
+
+<code php>
+namespace App\Auth;
+
+class Session {
+    private(namespace) function foo() {}
+}
+
+// OK: Top-level code in the same namespace
+$s = new Session();
+$s->foo(); 
+</code>
+
+<code php>
+namespace App\Other;
+
+$s = new \App\Auth\Session();
+$s->foo();
+// Fatal error: Uncaught Error: Call to private(namespace) method
+// App\Auth\Session::foo() from scope App\Other
+</code>
+
+The namespace context is tracked at compile-time.
+
+==== Inheritance Behavior ====
+
+''%%private(namespace)%%'' members behave like ''%%protected%%'' members in terms of inheritance: They’re inherited by child classes, and child classes can redeclare them only if they follow compatibility rules. However, visibility is enforced based on the **namespace where they were declared**, not on the inheritance hierarchy:
+
+<code php>
+namespace App\Auth;
+
+class Base {
+    private(namespace) function helper() {
+        echo "Base::helper\n";
+    }
+
+    public function callHelper() {
+        // Always works - method declared in App\Auth, called from App\Auth
+        $this->helper();
+    }
+}
+
+class Child extends Base {
+    public function test() {
+        // OK - Child is in same namespace as declaration (App\Auth)
+        $this->helper();
+    }
+}
+
+$child = new Child();
+$child->callHelper(); // Works - parent method calls via $this
+</code>
+
+<code php>
+namespace App\Other;
+
+class Different extends \App\Auth\Base {
+    public function test() {
+        $this->helper();
+        // Fatal error: Uncaught Error: Call to private(namespace) method
+        // App\Auth\Base::helper() from scope App\Other\Different
+    }
+}
+
+$diff = new Different();
+$diff->callHelper(); // Still works! Parent method in App\Auth can call it
+</code>
+
+==== Preventing Visibility Reduction and Incompatible Redeclaration ====
+
+Just like with ''%%protected%%'' members, redefining an inherited method with incompatible visibility is an error.
+
+''%%protected%%'' and ''%%private(namespace)%%'' operate on different axes and are fundamentally incompatible. You can’t transition between them in either direction:
+
+  * **Cannot widen** from ''%%private(namespace)%%'' to ''%%protected%%''
+  * **Cannot narrow** from ''%%protected%%'' to ''%%private(namespace)%%''
+
+This prevents soundness violations where code in the declaring namespace could call a ''%%private(namespace)%%'' method, but if a child class changes it to ''%%protected%%'', that call would fail at runtime.
+
+You also can’t reduce visibility from ''%%public%%'' to ''%%private(namespace)%%'':
+
+<code php>
+namespace App\Auth;
+
+class Base {
+    public function helper() {}
+}
+
+class Child extends Base {
+    private(namespace) function helper() {}
+    // Fatal error: Access level to Child::helper() must be public (as in class Base)
+}
+</code>
+
+=== Soundness Example: Why protected ↔ private(namespace) is Forbidden ===
+
+Here’s why transitioning between ''%%protected%%'' and ''%%private(namespace)%%'' would break type safety:
+
+<code php>
+namespace App\Auth;
+
+class P {
+    private(namespace) function x(): void {
+        echo "P::x()\n";
+    }
+}
+
+class C extends P {
+    // ERROR: Cannot change from private(namespace) to protected
+    // If this were allowed, the following would break:
+    protected function x(): void {
+        echo "C::x()\n";
+    }
+    // Fatal error: Access level to C::x() must be private(namespace) (as in class P) or weaker
+}
+
+function f(P $p): void {
+    // This is legal because f() is in the same namespace as P
+    // and P::x() is private(namespace)
+    $p->x();
+}
+
+// If C::x() were allowed to be protected, this would fail at runtime:
+// f(new C()); // Would error: Call to protected method C::x() from global scope
+</code>
+
+The reverse is also forbidden:
+
+<code php>
+namespace App\Auth;
+
+class Base {
+    protected function helper() {}
+}
+
+class Child extends Base {
+    // ERROR: Cannot change from protected to private(namespace)
+    private(namespace) function helper() {}
+    // Fatal error: Access level to Child::helper() must be protected (as in class Base) or weaker
+}
+</code>
+
+This would break child classes in other namespaces that expect to access the method via protected inheritance.
+
+Child classes in different namespaces can’t redeclare ''%%private(namespace)%%'' methods unless the signature is compatible (follows the same inheritance rules as ''%%protected%%'' methods):
+
+<code php>
+namespace App\Auth;
+
+class Base {
+    private(namespace) function helper(string $arg): void {}
+}
+</code>
+
+<code php>
+namespace App\Other;
+
+class Child extends \App\Auth\Base {
+    // This is an error: incompatible signature
+    private(namespace) function helper(int $arg): void {}
+    // Fatal error: Declaration of App\Other\Child::helper(int $arg): void
+    // must be compatible with App\Auth\Base::helper(string $arg): void
+}
+</code>
+
+==== Liskov Substitution Principle (LSP) Considerations ====
+
+The Liskov Substitution Principle applies to the public contract of a class. A subclass must be usable anywhere its parent is expected, using only the parent’s public API.
+
+''%%private(namespace)%%'' doesn't alter the public API at all. Substitutionally, for external callers, it is unchanged.
+
+**Important inheritance note**: While ''%%private(namespace)%%'' members are inherited like ''%%protected%%'' members, a key difference is that visibility is checked against the **declaring namespace** rather than the calling class’s namespace. This means:
+
+  * Child classes in the same namespace can access inherited ''%%private(namespace)%%'' members.
+  * Child classes in different namespaces can’t access inherited ''%%private(namespace)%%'' members.
+  * However, child classes in different namespaces **must still provide compatible signatures** if they redeclare the method, just like with ''%%protected%%'' methods.
+
+=== Public Callers (outside the namespace) ===
+
+For callers in a different namespace, ''%%private(namespace)%%'' members aren’t accessible. Both parent and child present the same public surface:
+
+<code php>
+namespace App\Auth;
+
+class SessionManager {
+    private(namespace) function validateToken() { /* ... */ }
+
+    public function login(): bool {
+        return $this->validateToken();
+    }
+}
+
+class AdvancedSessionManager extends SessionManager {
+    // public API unchanged
+}
+
+// in a different file:
+namespace App\Controllers;
+
+function authenticate(SessionManager $session): bool {
+    // same public API for SessionManager and AdvancedSessionManager
+    return $session->login();
+}
+</code>
+
+=== Callers inside the declaring namespace ===
+
+Inside the declaring namespace, ''%%private(namespace)%%'' members are accessible and therefore part of an **internal API**. A subclass defined in a //different// namespace does not expose that same internal API.
+
+This isn’t a violation of LSP, because LSP only requires substitutability via the public contract. The internal namespace-level API is intentionally not part of the public contract.
+
+=== Practical Guidance ===
+
+  * The public API of a class shouldn’t depend on callers being in the same namespace.
+  * Classes that share internal APIs should be kept in the same namespace.
+  * Subclasses in other namespaces remain fully substitutable through public methods.
+
+==== Trait Behavior ====
+
+When a trait defines a ''%%private(namespace)%%'' member, the visibility is checked against the **receiver class’s namespace**, not the trait’s namespace. This is consistent with how traits work in PHP—they’re essentially copied into the class that uses them.
+
+<code php>
+namespace App\Traits;
+
+trait SessionHelper {
+    private(namespace) function validateToken() {
+        return true;
+    }
+}
+</code>
+
+<code php>
+namespace App\Auth;
+
+use App\Traits\SessionHelper;
+
+class SessionManager {
+    use SessionHelper;
+
+    public function login() {
+        // OK - uses SessionManager's namespace (App\Auth)
+        // NOT the trait's namespace (App\Traits)
+        $this->validateToken();
+    }
+}
+</code>
+
+<code php>
+namespace App\Auth;
+
+class LoginController {
+    public function test(SessionManager $session) {
+        // OK - LoginController is in App\Auth (same as SessionManager)
+        $session->validateToken();
+    }
+}
+</code>
+
+<code php>
+namespace App\Controllers;
+
+class OtherController {
+    public function test(\App\Auth\SessionManager $session) {
+        $session->validateToken();
+        // Fatal error: Uncaught Error: Call to private(namespace) method
+        // App\Auth\SessionManager::validateToken() from scope App\Controllers\OtherController
+    }
+}
+</code>
+
+In short:
+
+  * Trait members behave as if they were declared directly in the class
+  * Different classes using the same trait may have different namespace access to the same trait method
+  * This is the least surprising behavior and consistent with trait semantics
+
+===== eval() and Dynamic Code =====
+
+Code executed via ''%%eval()%%'' can access ''%%private(namespace)%%'' members if it declares an explicit namespace that matches the target member’s namespace:
+
+==== eval() with Explicit Namespace Declaration ====
+
+<code php>
+namespace App\Auth;
+
+class SessionManager {
+    private(namespace) int $sessionCount = 0;
+
+    private(namespace) function validateToken(): bool {
+        return true;
+    }
+}
+
+$session = new SessionManager();
+
+// OK - eval code with explicit namespace declaration
+eval('
+namespace App\Auth;
+$count = $session->sessionCount;
+echo "Count: $count\n";
+$session->validateToken();
+');
+</code>
+
+==== eval() without Namespace Declaration ====
+
+When ''%%eval()%%'' is called without an explicit namespace declaration, the code runs in the global namespace and can’t access ''%%private(namespace)%%'' members:
+
+<code php>
+namespace App\Auth;
+
+$session = new SessionManager();
+
+// Error - eval code without namespace runs in global scope
+eval('
+$count = $session->sessionCount;
+');
+// Fatal error: Cannot access private(namespace) property
+// App\Auth\SessionManager::$sessionCount from scope {main}
+</code>
+
+==== Functions Defined in eval() ====
+
+Functions defined within ''%%eval()%%'' inherit the namespace context from the evaluated code:
+
+<code php>
+namespace App\Auth;
+
+eval('
+namespace App\Auth;
+
+function helperFunction(SessionManager $session): int {
+    // OK - function defined in App\Auth namespace
+    return $session->sessionCount * 2;
+}
+');
+
+$result = \App\Auth\helperFunction($session);
+</code>
+
+===== Closures and Callables =====
+
+''%%private(namespace)%%'' methods can be used with all callable forms in PHP. Namespace visibility is checked using the **lexical namespace** where the callable is created or invoked.
+
+==== call_user_func() and Related Functions ====
+
+''%%call_user_func()%%'', ''%%call_user_func_array()%%'', and ''%%array_map()%%'' check namespace visibility using the **caller’s lexical namespace**:
+
+<code php>
+namespace App\Auth;
+
+class SessionManager {
+    private(namespace) function validateToken(): bool {
+        return true;
+    }
+}
+</code>
+
+<code php>
+namespace App\Auth;
+
+$session = new SessionManager();
+// OK - call_user_func called from App\Auth namespace
+call_user_func([$session, 'validateToken']);
+</code>
+
+<code php>
+namespace App\Controllers;
+
+$session = new \App\Auth\SessionManager();
+call_user_func([$session, 'validateToken']);
+// Fatal error: Uncaught TypeError: call_user_func(): Argument #1 ($callback)
+// must be a valid callback, cannot access private(namespace) method
+// App\Auth\SessionManager::validateToken()
+</code>
+
+==== First-Class Callables ====
+
+First-class callable syntax (''%%$fn = $obj->method(...)%%'') checks namespace visibility at the **creation site**:
+
+<code php>
+namespace App\Auth;
+
+$session = new SessionManager();
+// OK - Callable created in App\Auth namespace
+$fn = $session->validateToken(...);
+$fn(); // Works
+</code>
+
+<code php>
+namespace App\Controllers;
+
+$session = new \App\Auth\SessionManager();
+$fn = $session->validateToken(...);
+// Fatal error: Uncaught Error: Call to private(namespace) method
+// App\Auth\SessionManager::validateToken() from scope App\Controllers
+</code>
+
+==== Closure::fromCallable() ====
+
+''%%Closure::fromCallable()%%'' follows the same rules as first-class callables - namespace visibility is checked at the **conversion site**:
+
+<code php>
+namespace App\Auth;
+
+$session = new SessionManager();
+// OK - Closure created in App\Auth namespace
+$closure = Closure::fromCallable([$session, 'validateToken']);
+$closure(); // Works
+</code>
+
+<code php>
+namespace App\Controllers;
+
+$session = new \App\Auth\SessionManager();
+$closure = Closure::fromCallable([$session, 'validateToken']);
+// Fatal error: Uncaught Error: class@anonymous::__invoke(): Argument #1 ($callback)
+// must be a valid callback, can't access private(namespace) method
+// App\Auth\SessionManager::validateToken()
+</code>
+
+==== Variable Function Calls ====
+
+Direct invocation of callable variables (e.g., ''%%$callable()%%'') checks namespace visibility at the **invocation site**, just like with other visibility modifiers:
+
+<code php>
+namespace App\Auth;
+
+$session = new SessionManager();
+$callable = [$session, 'validateToken'];
+// OK - Invoked from App\Auth namespace
+$callable();
+</code>
+
+<code php>
+namespace App\Controllers;
+
+$session = new \App\Auth\SessionManager();
+$callable = [$session, 'validateToken'];
+$callable();
+// Fatal error: Uncaught Error: Call to private(namespace) method
+// App\Auth\SessionManager::validateToken() from global scope
+</code>
+
+===== Reflection =====
+
+Reflection bypasses namespace visibility, consistent with how it handles ''%%private%%'':
+
+<code php>
+$method = new ReflectionMethod(SessionManager::class, 'checkExpiry');
+$method->invoke($session); // Works regardless of caller namespace
+</code>
+
+New Reflection methods:
+
+<code php>
+$method->isNamespacePrivate(): bool
+$property->isNamespacePrivate(): bool
+</code>
+
+===== Precedent in Other Languages =====
+
+Scoped visibility beyond class boundaries is standard in modern languages:
+
+^Language^Syntax                     ^Scope   ^
+|C#      |''%%internal%%''           |Assembly|
+|Kotlin  |''%%internal%%''           |Module  |
+|Swift   |''%%internal%%'' (default!)|Module  |
+|Rust    |''%%pub(crate)%%''         |Crate   |
+|Java    |(no modifier)              |Package |
+
+PHP is an outlier in not having this feature.
+
+===== Backward Incompatible Changes =====
+
+None. This is a purely additive feature:
+
+  * New syntax that was previously a parse error
+  * No changes to existing visibility behavior
+  * Fully opt-in
+
+===== Proposed PHP Version =====
+
+Next minor version (PHP 8.6 or 9.0)
+
+===== RFC Impact =====
+
+==== To the Ecosystem ====
+
+This feature provides a new encapsulation mechanism that’ll benefit library and framework developers:
+
+=== Benefits ===
+
+  - **Cleaner Internal APIs**: Frameworks like Symfony, Laravel, and Doctrine can better encapsulate internal helper methods that need to be shared between classes in a namespace without exposing them as public API.
+  - **Better Type Safety**: Static analysis tools (PHPStan, Psalm) can understand namespace-scoped visibility and provide more accurate warnings about API misuse. Attempting to call a namespace-scoped member results in a compile-time error.
+  - **Reduced Public API Surface**: Libraries can reduce their public API surface, making it easier to evolve internal implementations without breaking backwards compatibility.
+  - **Package Organization**: Large packages with multiple classes working together can organize code more naturally without artificial design patterns (such as excessive inheritance) to share internal state.
+
+=== Migration Path ===
+
+This is a purely additive feature—existing code continues to work unchanged:
+
+  * **No Breaking Changes**: Existing visibility modifiers (''%%public%%'', ''%%protected%%'', ''%%private%%'') continue to work exactly as before
+  * **Opt-in Adoption**: Developers can gradually adopt ''%%private(namespace)%%'' in new code or when refactoring
+  * **No Forced Upgrades**: Libraries don’t need to update unless they want to use the feature
+
+=== Static Analysis Tool Support ===
+
+Static analysis tools will need to understand the new visibility modifier:
+
+  * **PHPStan**: Will need to add support for ''%%private(namespace)%%'' visibility checks
+  * **Psalm**: Will need to add support for ''%%private(namespace)%%'' visibility checks
+  * **PHP-CS-Fixer/PHP_CodeSniffer**: May want to add rules for consistent usage of ''%%private(namespace)%%''
+  * **IDEs** (PhpStorm, VS Code with Intelephense): Will need to understand the syntax and provide proper code completion and error highlighting
+
+The implementation provides Reflection methods (''%%ReflectionMethod::isNamespacePrivate()%%'', ''%%ReflectionProperty::isNamespacePrivate()%%'') that tools can use to inspect namespace visibility.
+
+=== Use Cases in Popular Frameworks ===
+
+**Symfony**:
+
+  * Internal authentication checks (like the SessionManager example in this RFC)
+  * Event dispatcher internal methods
+  * Container internal service resolution helpers
+
+**Laravel**:
+
+  * Eloquent model internal query building methods
+  * Collection internal transformation helpers
+  * Routing internal matching algorithms
+
+**Doctrine**:
+
+  * UnitOfWork internal state management
+  * EntityManager internal hydration methods
+  * Query builder internal optimization passes
+
+=== Potential Breaking Changes for Reflection Users ===
+
+Code that uses Reflection to introspect classes will see new ''%%private(namespace)%%'' members:
+
+<code php>
+// This will now include private(namespace) methods
+$methods = (new ReflectionClass(SessionManager::class))->getMethods();
+</code>
+
+However, this is consistent with how Reflection already works—it shows all members regardless of visibility.
+
+==== To SAPIs ====
+
+None
+
+==== To Existing Extensions ====
+
+Extensions that interact with op_arrays directly will need to be aware of the new ''%%namespace_name%%'' field. Most extensions shouldn’t be affected.
+
+==== To Opcache ====
+
+Opcache’s persistence layer must handle the new ''%%namespace_name%%'' field in ''%%zend_op_array%%'':
+
+  - **String interning**: The ''%%namespace_name%%'' string must be interned into shared memory, similar to ''%%function_name%%''
+  - **Reference counting**: Proper refcount management when persisting and reusing cached op_arrays
+  - **Translation table**: The old namespace_name pointer must be registered in the translation table for proper cleanup
+  - **Memory management**: When reusing cached op_arrays, the original namespace_name string must be released
+
+==== To Core ====
+
+The compiler needed modifications to prevent memory leaks when tokenizing code to track the current namespace to support ''%%private(namespace)%%'' and ''%%private(namespace)(set)%%''
+
+==== Performance ====
+
+**Runtime performance**: Minimal impact. One additional flag check at method/property access time (already checking visibility flags).
+
+**Memory cost**: 8 bytes per ''%%zend_op_array%%'' (64-bit systems) for the ''%%namespace_name%%'' field:
+
+  * Main script op_arrays: Always allocated (one per file)
+  * Function op_arrays: One per function/method
+  * For a typical application with 1000 functions, this adds ~8KB of memory
+
+**Opcache performance**: Minor overhead for namespace_name string interning and refcount management during cache persistence. This occurs once per script during compilation, not on every request.
+
+===== Future Scope =====
+
+This RFC intentionally excludes:
+
+  * **Anonymous classes**:
+    * Anonymous class names don’t contain namespace information (''%%class@anonymous...%%'' vs ''%%Foo\Bar\ClassName%%'')
+    * A future RFC could address this, potentially alongside reconsidering anonymous class naming conventions
+    * For now, anonymous classes are treated as being in the global namespace for visibility checks
+  * **Class-level visibility**: ''%%private class Foo {}%%''
+    * This would require class resolution changes and is significantly more complex
+    * Can be proposed separately
+  * **Constants**: ''%%private(namespace) const X = 1;%%''
+    * Constants have compile-time resolution complexity
+  * **Protected(namespace)**: Combination of namespace and inheritance scoping
+    * Can be added later if desired
+
+===== Open Issues =====
+
+  - **Syntax**: The syntax ''%%private(namespace)%%'' doesn't follow asymmetric visibility (AViz) semantics and is somewhat verbose. However, it clearly communicates the intent and follows the pattern established by other visibility modifiers.
+
+===== Proposed Voting Choices =====
+
+Accept ''%%private(namespace)%%'' visibility for methods and properties? Yes/No (2/3 majority required)
+
+
+===== Patches and Tests =====
+
+Implementation: https://github.com/php/php-src/pull/20421
+
+===== References =====
+
+  * C# internal modifier: https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/internal
+  * Kotlin internal visibility: https://kotlinlang.org/docs/visibility-modifiers.html
+  * Swift access control: https://docs.swift.org/swift-book/documentation/the-swift-programming-language/accesscontrol/
+  * Rust visibility: https://doc.rust-lang.org/reference/visibility-and-privacy.html
+  * Previous discussion on this topic: https://externals.io/message/111876#111876
+
+===== Changelog =====
+
+  * 1.0: Initial version
+  * 1.1: Address issue with protected private(namespace) asymmetric visibility
+  * 1.2: Clarified inheritance behavior (behaves like protected, not private), added soundness requirement preventing transitions between protected and private(namespace), expanded ecosystem impact section

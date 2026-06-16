@@ -1,0 +1,69 @@
+# Supporting a transition from V2 to V3
+
+## Introduction
+
+On July 1, 2025, we aim to shut down V2 forever.
+With enough of a warning, we can delay the shutdown until December 2025;
+however, this incurs additional costs to us that we would like to avoid.
+We need to know this by May 31, 2025.
+
+There are a number of impacted products and services:
+
+- white-label apps
+- API customers
+- in-gym solutions
+
+## White-label app options
+
+Tenants still on V2 have several options available to them:
+
+1. Stop using Funxtion.
+2. Upsell via SDK and upgrade to V3.
+3. Purchase our V3 whitelabel app via Leisure Labs.
+
+### Option 1: Stop using Funxtion
+
+Tenants may opt to stop using Funxtion altogether. This is the simplest solution but also the most drastic.
+
+### Option 2: Upsell via SDK and upgrade to V3
+
+Tenants may opt to migrate to V3 through using our SDK.
+They will be responsible for their own development and maintenance.
+
+See the migration section for more details.
+
+### Option 3: Purchase our V3 whitelabel app via Leisure Labs
+
+Tenants may opt to purchase our V3 whitelabel app via Leisure Labs.
+
+## API customer options
+
+API customers have a limited set of options available to them:
+
+1. Stop using Funxtion.
+2. Manually migrate content to V3 and use our SDK.
+
+### Option 1: Stop using Funxtion
+
+API customers may opt to stop using Funxtion altogether. This is the simplest solution but also the most drastic.
+
+### Option 2: Manually migrate content to V3 and use our SDK
+
+No automated migration options exist for API customers.
+They must manually migrate their content to V3 and use our SDK.
+
+## In-gym solutions
+
+In-gym solutions use the V2 API and are not compatible with V3.
+The development team aims to have a solution in-place by July 1,
+2025,
+and expects 
+that it will be a seamless transition by working with Notice Media to provide V3 compatibility and/or other means.
+
+## Migration
+
+Through the migration of GoodLife to V3, we have some basic tooling available to assist with migrations from V2 to V3.
+However, this still requires a lot of manual work to get it right per-tenant.
+Thus, if a tenant requests that we migrate their content, please ensure that we bill for the hours spent working on this.
+
+Alternatively, the tenant can migrate their content themselves through the use of the Portal.

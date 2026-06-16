@@ -1,6 +1,6 @@
 # PHP RFC: Your Title Here
 
-\* Version: 0.9 \* Date: 2013-02-24 (use today's date here) \* Author:
+\* Version: 0.9 \* Date: 2013-02-24 (use today’s date here) \* Author:
 Your Name, your_email_address@example.com \* Status: Draft (or Under
 Discussion or Accepted or Declined) \* First Published at:
 <http://wiki.php.net/rfc/your_rfc_name>
@@ -12,23 +12,20 @@ specified. Not all RFCs need all the sections below. Read
 
 Quoting [Rasmus](http://news.php.net/php.internals/71525):
 
-> PHP is and should remain:
->
-> 1\) a pragmatic web-focused language
->
-> 2\) a loosely typed language
->
-> 3\) a language which caters to the skill-levels and platforms of a
-> wide range of users
+> PHP is and should remain:\
+> 1) a pragmatic web-focused language\
+> 2) a loosely typed language\
+> 3) a language which caters to the skill-levels and platforms of a wide
+> range of users
 
 Your RFC should move PHP forward following his vision. As [said by Zeev
-Suraski](http://news.php.net/php.internals/66065) "Consider only
+Suraski](http://news.php.net/php.internals/66065) “Consider only
 features which have significant traction to a large chunk of our
 userbase, and not something that could be useful in some extremely
-specialized edge cases \[...\] Make sure you think about the full
-context, the huge audience out there, the consequences of making the
-learning curve steeper with every new feature, and the scope of the
-goodness that those new features bring."
+specialized edge cases \[…\] Make sure you think about the full context,
+the huge audience out there, the consequences of making the learning
+curve steeper with every new feature, and the scope of the goodness that
+those new features bring.”
 
 ## Introduction
 
@@ -42,7 +39,7 @@ All the features and examples of the proposal.
 
 To [paraphrase Zeev Suraski](http://news.php.net/php.internals/66051),
 explain hows the proposal brings substantial value to be considered for
-inclusion in one of the world's most popular programming languages.
+inclusion in one of the world’s most popular programming languages.
 
 Remember that the RFC contents should be easily reusable in the PHP
 Documentation.
@@ -57,7 +54,7 @@ What breaks, and what is the justification for it?
 ## Proposed PHP Version(s)
 
 List the proposed PHP versions that the feature will be included in. Use
-relative versions such as "next PHP 8.x" or "next PHP 8.x.y".
+relative versions such as “next PHP 8.x” or “next PHP 8.x.y”.
 
 ## RFC Impact
 
@@ -71,10 +68,10 @@ Will existing extensions be affected?
 
 ### To Opcache
 
-It is necessary to develop RFC's with opcache in mind, since opcache is
+It is necessary to develop RFC’s with opcache in mind, since opcache is
 a core extension distributed with PHP.
 
-Please explain how you have verified your RFC's compatibility with
+Please explain how you have verified your RFC’s compatibility with
 opcache.
 
 ### New Constants
@@ -96,7 +93,7 @@ Make sure there are no open issues when the vote starts!
 List existing areas/features of PHP that will not be changed by the RFC.
 
 This helps avoid any ambiguity, shows that you have thought deeply about
-the RFC's impact, and helps reduces mail list noise.
+the RFC’s impact, and helps reduces mail list noise.
 
 ## Future Scope
 
